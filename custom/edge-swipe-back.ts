@@ -41,6 +41,15 @@ const BACK_SELECTOR = [
   ".music-settings-close",
   ".music-header-action",
   ".mini-app-btn",
+  ".rh-btn",
+  ".qa-icon-btn",
+  ".mix-icon-btn",
+  ".diary-icon-btn",
+  // 无 class 的返回按钮兜底：按 aria 语义匹配（返回/back/关闭/退出）
+  'button[aria-label*="返回"]',
+  'button[aria-label*="back" i]',
+  'button[aria-label*="关闭"]',
+  'button[aria-label*="退出"]',
 ].join(",");
 
 const BACK_WORDS = ["返回", "back", "关闭", "close", "退出"];
