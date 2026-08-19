@@ -161,6 +161,105 @@ const ENHANCEMENTS = [
       writeFileSync(p, next, "utf8");
     },
   },
+  {
+    id: "custom/no-photo.ts 文件存在",
+    check: () => existsSync(join(ROOT, "custom", "no-photo.ts")),
+    apply: () => {},
+  },
+  {
+    id: "rich-message-parser.ts: import noPhotoFilter",
+    check: () => read("lib/rich-message-parser.ts").includes('import { noPhotoFilter } from "@/custom/no-photo";'),
+    apply: () => {
+      const p = join(ROOT, "lib", "rich-message-parser.ts");
+      const c = readFileSync(p, "utf8");
+      if (c.includes('import { noPhotoFilter } from "@/custom/no-photo";')) return;
+      const next = c.replace(
+        'import { stripTextToolDirectives } from "./text-tool-protocol";',
+        'import { stripTextToolDirectives } from "./text-tool-protocol";\nimport { noPhotoFilter } from "@/custom/no-photo";',
+      );
+      if (next === c) throw new Error("rich-message-parser.ts import 锚点未找到");
+      writeFileSync(p, next, "utf8");
+    },
+  },
+  {
+    id: "rich-message-parser.ts: 过滤照片 part",
+    check: () => read("lib/rich-message-parser.ts").includes(".filter(noPhotoFilter)"),
+    apply: () => {
+      const p = join(ROOT, "lib", "rich-message-parser.ts");
+      const c = readFileSync(p, "utf8");
+      if (c.includes(".filter(noPhotoFilter)")) return;
+      const next = c.replace(
+        "}).filter(p => p.mediaType || !isInvisibleOrWhitespaceOnly(p.content));",
+        "}).filter(p => p.mediaType || !isInvisibleOrWhitespaceOnly(p.content)).filter(noPhotoFilter);",
+      );
+      if (next === c) throw new Error("rich-message-parser.ts filter 锚点未找到");
+      writeFileSync(p, next, "utf8");
+    },
+  },
+  {
+    id: "moments-engine.ts: import shouldStripMomentPhoto",
+    check: () => read("lib/moments-engine.ts").includes('import { shouldStripMomentPhoto } from "@/custom/no-photo";'),
+    apply: () => {
+      const p = join(ROOT, "lib", "moments-engine.ts");
+      const c = readFileSync(p, "utf8");
+      if (c.includes('import { shouldStripMomentPhoto } from "@/custom/no-photo";')) return;
+      const next = c.replace(
+        'import { prepareShortTermContext } from "./short-term-assembler";',
+        'import { prepareShortTermContext } from "./short-term-assembler";\nimport { shouldStripMomentPhoto } from "@/custom/no-photo";',
+      );
+      if (next === c) throw new Error("moments-engine.ts import 锚点未找到");
+      writeFileSync(p, next, "utf8");
+    },
+  },
+  {
+    id: "moments-engine.ts: 朋友圈剥离照片",
+    check: () => read("lib/moments-engine.ts").includes("const stripMomentPhoto = shouldStripMomentPhoto();"),
+    apply: () => {
+      const p = join(ROOT, "lib", "moments-engine.ts");
+      const c = readFileSync(p, "utf8");
+      if (c.includes("const stripMomentPhoto = shouldStripMomentPhoto();")) return;
+      const next = c.replace(
+        '    const photoDescription = explicitPhotoMatch\n        ? explicitPhotoMatch[2].trim()\n        : legacyPhotoMatch ? legacyPhotoMatch[1].trim() : undefined;\n    const photoUseReferenceImage = explicitPhotoMatch ? explicitPhotoMatch[1] === "使用参考图" : false;',
+        '    // 「禁止角色发照片」开启时，朋友圈不再保留照片描述，只发纯文字。\n    const stripMomentPhoto = shouldStripMomentPhoto();\n    const photoDescription = stripMomentPhoto\n        ? undefined\n        : (explicitPhotoMatch\n            ? explicitPhotoMatch[2].trim()\n            : legacyPhotoMatch ? legacyPhotoMatch[1].trim() : undefined);\n    const photoUseReferenceImage = stripMomentPhoto ? false : (explicitPhotoMatch ? explicitPhotoMatch[1] === "使用参考图" : false);',
+      );
+      if (next === c) throw new Error("moments-engine.ts 朋友圈剥离锚点未找到");
+      writeFileSync(p, next, "utf8");
+    },
+  },
+  {
+    id: "image-generation-settings.tsx: import no-photo 与 ImageOff",
+    check: () => read("components/settings/image-generation-settings.tsx").includes('import { isNoPhotoEnabled, setNoPhotoEnabled } from "@/custom/no-photo";'),
+    apply: () => {
+      const p = join(ROOT, "components", "settings", "image-generation-settings.tsx");
+      let c = readFileSync(p, "utf8");
+      if (c.includes('import { isNoPhotoEnabled, setNoPhotoEnabled } from "@/custom/no-photo";')) return;
+      let next = c.replace(
+        'import { AlertCircle, Camera, ChevronDown, Image, RefreshCw, Sparkles, Trash2, Upload } from "lucide-react";',
+        'import { AlertCircle, Camera, ChevronDown, Image, ImageOff, RefreshCw, Sparkles, Trash2, Upload } from "lucide-react";',
+      );
+      next = next.replace(
+        'import { Alert } from "@/components/ui/feedback";\nimport { Input, Select, Textarea, Toggle } from "@/components/ui/form";',
+        'import { Alert } from "@/components/ui/feedback";\nimport { Input, Select, Textarea, Toggle } from "@/components/ui/form";\nimport { isNoPhotoEnabled, setNoPhotoEnabled } from "@/custom/no-photo";',
+      );
+      if (next === c) throw new Error("image-generation-settings.tsx import 锚点未找到");
+      writeFileSync(p, next, "utf8");
+    },
+  },
+  {
+    id: "image-generation-settings.tsx: 禁止角色发照片开关行",
+    check: () => read("components/settings/image-generation-settings.tsx").includes("禁止角色发照片"),
+    apply: () => {
+      const p = join(ROOT, "components", "settings", "image-generation-settings.tsx");
+      const c = readFileSync(p, "utf8");
+      if (c.includes("禁止角色发照片")) return;
+      const next = c.replace(
+        '                    <span className="menu-right settings-tools-menu-toggle">\n                        <Toggle checked={settings.enabled} onChange={(enabled) => updateSettings({ enabled })} className="settings-toggle-control" />\n                    </span>\n                </div>\n            </div>',
+        '                    <span className="menu-right settings-tools-menu-toggle">\n                        <Toggle checked={settings.enabled} onChange={(enabled) => updateSettings({ enabled })} className="settings-toggle-control" />\n                    </span>\n                </div>\n                <div className="menu-item">\n                    <span className="card-icon" style={imageGenerationIconStyle}>\n                        <ImageOff size={22} strokeWidth={1.75} />\n                    </span>\n                    <span className="settings-tools-menu-copy">\n                        <span className="menu-label appearance-menu-item-label">禁止角色发照片</span>\n                        <span className="menu-desc settings-tools-menu-desc">聊天与朋友圈中不再出现照片标签及图片描述文字。</span>\n                    </span>\n                    <span className="menu-right settings-tools-menu-toggle">\n                        <Toggle checked={noPhoto} onChange={(enabled) => { setNoPhoto(enabled); setNoPhotoEnabled(enabled); }} className="settings-toggle-control" />\n                    </span>\n                </div>\n            </div>',
+      );
+      if (next === c) throw new Error("image-generation-settings.tsx 开关行锚点未找到");
+      writeFileSync(p, next, "utf8");
+    },
+  },
 ];
 
 let changed = false;

@@ -43,6 +43,7 @@ import { maybeRunSummarization } from "./memory-summarizer";
 import { assemblePromptPayload, type LLMMessage, type AssemblerInput } from "./llm-prompt-assembler";
 import type { RegexConfig } from "./settings-types";
 import { prepareShortTermContext } from "./short-term-assembler";
+import { shouldStripMomentPhoto } from "@/custom/no-photo";
 import { parseActionTags, dispatchActions } from "./action-parser";
 import { buildCalendarScheduleMarker } from "./calendar-storage";
 import { getWeekStartIso } from "./calendar-utils";
@@ -1155,10 +1156,14 @@ export function parseMomentPostResponse(rawText: string): {
 
     const explicitPhotoMatch = text.match(/\[照片[:：]\s*(使用参考图|不使用参考图)\s*[:：]\s*([\s\S]*?)\]/);
     const legacyPhotoMatch = explicitPhotoMatch ? null : text.match(/\[照片[:：]\s*([\s\S]*?)\]/);
-    const photoDescription = explicitPhotoMatch
-        ? explicitPhotoMatch[2].trim()
-        : legacyPhotoMatch ? legacyPhotoMatch[1].trim() : undefined;
-    const photoUseReferenceImage = explicitPhotoMatch ? explicitPhotoMatch[1] === "使用参考图" : false;
+    // 「禁止角色发照片」开启时，朋友圈不再保留照片描述，只发纯文字。
+    const stripMomentPhoto = shouldStripMomentPhoto();
+    const photoDescription = stripMomentPhoto
+        ? undefined
+        : (explicitPhotoMatch
+            ? explicitPhotoMatch[2].trim()
+            : legacyPhotoMatch ? legacyPhotoMatch[1].trim() : undefined);
+    const photoUseReferenceImage = stripMomentPhoto ? false : (explicitPhotoMatch ? explicitPhotoMatch[1] === "使用参考图" : false);
 
     const content = text
         .replace(/\[照片[:：]\s*(?:使用参考图|不使用参考图)\s*[:：]\s*[\s\S]*?\]/g, "")

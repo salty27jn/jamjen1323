@@ -14,6 +14,7 @@ import type { StateValue } from "./chat-storage";
 import { parseStateValues, mergeStateValues } from "./state-value-parser";
 import { stripActionShells } from "./action-parser";
 import { stripTextToolDirectives } from "./text-tool-protocol";
+import { noPhotoFilter } from "@/custom/no-photo";
 import {
     formatCustomAppDirectiveSummary,
     getCustomAppDirectiveSyntaxHead,
@@ -659,7 +660,7 @@ export function parseAIResponse(rawText: string, previousState: StateValue[]): P
         if (p.mediaType) return p;
         const display = stripTextToolDirectives(restore(p.content));
         return { ...p, content: display };
-    }).filter(p => p.mediaType || !isInvisibleOrWhitespaceOnly(p.content));
+    }).filter(p => p.mediaType || !isInvisibleOrWhitespaceOnly(p.content)).filter(noPhotoFilter);
 
     return {
         parts: cleaned,

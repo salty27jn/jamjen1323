@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
-import { AlertCircle, Camera, ChevronDown, Image, RefreshCw, Sparkles, Trash2, Upload } from "lucide-react";
+import { AlertCircle, Camera, ChevronDown, Image, ImageOff, RefreshCw, Sparkles, Trash2, Upload } from "lucide-react";
 import type { ImageGenerationSettings as ImageGenerationSettingsType } from "@/lib/settings-types";
 import {
     DEFAULT_IMAGE_GENERATION_SETTINGS,
@@ -18,6 +18,7 @@ import {
 } from "@/lib/image-generation-service";
 import { Alert } from "@/components/ui/feedback";
 import { Input, Select, Textarea, Toggle } from "@/components/ui/form";
+import { isNoPhotoEnabled, setNoPhotoEnabled } from "@/custom/no-photo";
 
 const SIZE_OPTIONS = ["auto", "1024x1024", "1024x1536", "1536x1024"];
 const QUALITY_OPTIONS = ["auto", "low", "medium", "high"];
@@ -57,6 +58,7 @@ type Status = { success: boolean; message: string };
 export function ImageGenerationSettings() {
     const [settings, setSettings] = useState<ImageGenerationSettingsType>(DEFAULT_IMAGE_GENERATION_SETTINGS);
     const [characters, setCharacters] = useState<Character[]>([]);
+    const [noPhoto, setNoPhoto] = useState<boolean>(false);
     const [referencePreviews, setReferencePreviews] = useState<Record<string, string>>({});
     const [models, setModels] = useState<string[]>([]);
     const [isFetchingModels, setIsFetchingModels] = useState(false);
@@ -68,6 +70,7 @@ export function ImageGenerationSettings() {
         // Sync the ratio hint to the saved size on load, so the hint is present
         // by default (not only after the user manually switches the size).
         const loaded = loadImageGenerationSettings();
+        setNoPhoto(isNoPhotoEnabled());
         const syncedExtra = withRatioHint(loaded.extraPrompt, loaded.size);
         if (syncedExtra !== loaded.extraPrompt) {
             const next = { ...loaded, extraPrompt: syncedExtra };
@@ -210,6 +213,18 @@ export function ImageGenerationSettings() {
                     </span>
                     <span className="menu-right settings-tools-menu-toggle">
                         <Toggle checked={settings.enabled} onChange={(enabled) => updateSettings({ enabled })} className="settings-toggle-control" />
+                    </span>
+                </div>
+                <div className="menu-item">
+                    <span className="card-icon" style={imageGenerationIconStyle}>
+                        <ImageOff size={22} strokeWidth={1.75} />
+                    </span>
+                    <span className="settings-tools-menu-copy">
+                        <span className="menu-label appearance-menu-item-label">禁止角色发照片</span>
+                        <span className="menu-desc settings-tools-menu-desc">聊天与朋友圈中不再出现照片标签及图片描述文字。</span>
+                    </span>
+                    <span className="menu-right settings-tools-menu-toggle">
+                        <Toggle checked={noPhoto} onChange={(enabled) => { setNoPhoto(enabled); setNoPhotoEnabled(enabled); }} className="settings-toggle-control" />
                     </span>
                 </div>
             </div>
