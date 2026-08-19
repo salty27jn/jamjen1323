@@ -14,6 +14,8 @@ import { getThemeAssetMap, readThemeProfile } from "@/lib/theme-storage";
 import { resolveActiveIconSkins, type ThemeProfile } from "@/lib/theme-types";
 import { hasPendingMcpOAuthCallback } from "@/lib/tool-executor";
 import { shouldRequestPwaFullscreen } from "@/lib/pwa-display-mode";
+import { withTimeout } from "@/custom/idb-timeout";
+import { SplashTap } from "@/custom/splash-tap";
 
 const TEXT = {
   loading: "\u52A0\u8F7D\u4E2D...",
@@ -237,12 +239,12 @@ export function MainApp() {
     void navigator.storage?.persist?.().catch(() => {});
 
     void (async () => {
-      await hydrateKvDb();
+      await withTimeout(hydrateKvDb(), 2000, "IndexedDB 初始化超时，跳过本地数据恢复");
       if (cancelled) return;
 
       let nextPreparedTheme: PreparedDesktopTheme | null = null;
       try {
-        nextPreparedTheme = await prepareDesktopThemeForFirstPaint();
+        nextPreparedTheme = await withTimeout(prepareDesktopThemeForFirstPaint(), 2000, "主题预加载超时");
       } catch (error) {
         console.warn("[MainApp] desktop theme preload failed:", error);
       }
@@ -277,7 +279,9 @@ export function MainApp() {
   return (
     <AccountGate>
       {!splashDismissed ? (
-        <SplashScreen ready={hydrated} onEnter={() => setSplashDismissed(true)} />
+        <SplashTap ready={hydrated} onEnter={() => setSplashDismissed(true)}>
+          <SplashScreen ready={hydrated} onEnter={() => setSplashDismissed(true)} />
+        </SplashTap>
       ) : (
         <main className="app-root">
           <MusicProvider>

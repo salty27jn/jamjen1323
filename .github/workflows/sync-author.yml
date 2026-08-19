@@ -1,0 +1,61 @@
+name: Sync author updates
+
+on:
+  workflow_dispatch: # 手动触发：GitHub 仓库页面 -> Actions -> Sync author updates -> Run workflow
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Fetch author upstream
+        run: |
+          git remote add upstream https://github.com/xiaolongbao0709/ai-virtual-phone.git
+          git fetch upstream main
+
+      - name: Merge author updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if git merge --no-edit upstream/main 2>&1; then
+            echo "MERGE_OK=1" >> "$GITHUB_ENV"
+          else
+            echo "MERGE_OK=0" >> "$GITHUB_ENV"
+            git merge --abort
+          fi
+          echo "::notice::Author merge status: $MERGE_OK"
+
+      - name: Re-apply local enhancements
+        run: |
+          node apply-custom.mjs
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "CLEAN=1" >> "$GITHUB_ENV"
+          else
+            echo "CLEAN=0" >> "$GITHUB_ENV"
+          fi
+
+      - name: Commit and push
+        if: env.CLEAN == '0' && env.MERGE_OK == '1'
+        run: |
+          git add -A
+          git commit -m "chore: sync author updates and re-apply local enhancements"
+          git push origin main
+
+      - name: Report merge conflict
+        if: env.MERGE_OK == '0'
+        run: |
+          echo "::error::作者更新与本仓库自定义改动发生冲突，已自动回退。"
+          echo "请人工处理：git fetch upstream && git merge upstream/main，解决冲突后跑 node apply-custom.mjs 再提交。"
+          exit 1
+
+      - name: Report no changes
+        if: env.CLEAN == '1' && env.MERGE_OK == '1'
+        run: echo "::notice::已是最新，无需要同步的改动。"
