@@ -71,8 +71,22 @@
 - 顶部仅保留一行会话信息（第X天 · 上午 · 委托：…）+ 回合制标记。
 - **剧本工坊主页初始为空**：正式版**不内置任何剧本**，主页默认 0 个剧本（空状态：提示 + 导入按钮），所有剧本均需玩家手动导入。预览页的 7 个假剧本仅为排版展示，正式版不存在。
 
-## 六、开发环境备忘
+## 六、正式版实现记录（本轮已完成，2026-08-20）
 
+- **桌面入口**：`desktop-config.ts` 新增 `scripthub` 图标（label「剧本工坊」，tone violet，默认页3），`icon-glyph.tsx` 加 mdiDramaMasks，`desktop-shell.tsx` renderAppBody 注册 `<ScriptHubApp>` + hydrate 调用。
+- **存储层** `lib/scripthub-storage.ts`：Dexie `AiPhoneScriptHubDB` 表 scripts 持久化剧本（含原文 content），内存缓存；CRUD + 启发式解析 `parseScriptText`（标题/模式A/B） + NPC 提取 `extractNpcCandidates` + 角色卡生成 `ensureScriptNpcs`。
+- **应用层** `components/scripthub/scripthub-app.tsx` 三屏：
+  - 主页：空状态（0 剧本）+ 导入 .txt/.json（复用 reading-parser 编码检测）+ 卡片列表 + 删除。
+  - 准备工作：首次进入自动 `ensureScriptNpcs`（原文搬运 → createCharacter → addChatContact → createOrGetSession），列出真实角色卡；面具从 loadUserIdentities 选择（写 script.userIdentityId）；全部就绪才亮「开始游戏」。
+  - 游戏进行中：跑团正文（真实消息流 + ChatPageHeader/MessageBubble）+ 输入框 + 4 行动选项 + 状态栏（＋折叠）+ 西幻分割线 + 绿宝石呼吸灯；回合引擎驱动。
+- **回合引擎** `lib/scripthub-engine.ts`：`runScriptTurn` 组装 DM 提示（剧本原文 + 8条选项规则 + 状态栏 + 面具 + 历史 + 联动聊天）→ simpleLLMCall → 解析 JSON（narration/choices/state_changes/status_notes/linked_messages）→ `applyStateChanges` 结算属性生成状态栏注释。复用 resolveBinding/resolveUserIdentity/loadApiConfigs 取 API。
+- **跑团联动开关**：聊天 `+` 菜单新增「跑团联动」（照抄番外指令模式，`active` 高亮），per-session kv `chat-scripthub-mode:<sessionId>`，chat-room.tsx 经 props 传入 ChatTextInputBar。
+- **私聊/群聊双向打通（本轮核心）**：
+  - 读取：回合生成时 `buildLinkedChatContext` 扫描剧本绑定的私聊/群聊中「跑团联动」开启的会话，读最近消息注入 DM 上下文影响后文。
+  - 推送：DM 回合 JSON 生成 `linked_messages`（NPC 发私聊），`deliverLinkedMessages` 按 NPC 名匹配角色卡 → `pushChatMessage` 真实推送到私聊/群聊会话（置未读，出现在聊天界面，可点进去回复）。
+- **API 配置**：回合引擎需 `settings-storage` 有可用 API 配置（resolveBinding 的 scripthub slot 或 configs[0]），未配置时报错提示用户去设置添加。
+
+## 七、开发环境备忘
 - 项目根：`C:\Users\win\AppData\Local\Temp\opencode\repos\ai-virtual-phone`
 - dev server：端口 3001（`scripts/local-next-server.mjs` 默认），日志 `C:\Users\win\AppData\Local\Temp\opencode\dev-server.log`。
 - PowerShell 执行策略禁 npm.ps1，须用 `C:\Program Files\nodejs\npm.cmd`。
