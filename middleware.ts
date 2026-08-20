@@ -7,6 +7,7 @@ import { isSelfHostedModeEnabled } from "./lib/self-hosting";
 
 const PUBLIC_ROUTE_PREFIXES = [
   "/verify",
+  "/scripthub-preview",
   "/api/auth/",
   "/api/verify/",
 ];
