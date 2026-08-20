@@ -36,10 +36,12 @@ import { CheckPhoneApp } from "@/components/checkphone/checkphone-app";
 import { ShoppingApp } from "@/components/shopping/shopping-app";
 import { GameHubApp } from "@/components/game/game-hub-app";
 import { MixologyApp } from "@/components/mixology/mixology-app";
+import { ScriptHubApp } from "@/components/scripthub/scripthub-app";
 import InterviewMagazineApp from "@/components/interview/interview-magazine-app";
 import { CoCreateApp } from "@/components/cocreate/cocreate-app";
 import { AppMarketApp } from "@/components/app-market/app-market-app";
 import { CustomAppRunner } from "@/components/app-market/custom-app-runner";
+import { CustomAppForegroundBoundary } from "@/components/app-market/custom-app-failure";
 import { hydrateKvDb, kvGet, kvSet, kvRemove, kvKeysWithPrefix } from "@/lib/kv-db";
 import { deleteDatabase } from "@/lib/data-management/idb";
 import { hydrateStoryStorage } from "@/lib/story-storage";
@@ -48,6 +50,7 @@ import { hydrateVnStorage } from "@/lib/vn-storage";
 import { hydrateSettingsDb } from "@/lib/settings-db";
 import { hydrateDwellingStorage } from "@/lib/dwelling-storage";
 import { hydrateCheckPhoneStorage } from "@/lib/checkphone-storage";
+import { hydrateScripthubStorage } from "@/lib/scripthub-storage";
 import {
   DOCK_DEFAULT,
   ICONS,
@@ -1737,6 +1740,7 @@ export function DesktopShell({ initialThemeProfile, initialThemeAssets }: Deskto
           hydrateVnStorage(),
           hydrateDwellingStorage(),
           hydrateCheckPhoneStorage(),
+          hydrateScripthubStorage(),
         ]);
       } catch (err) {
         console.warn("[Desktop] storage hydration error:", err);
@@ -3808,12 +3812,21 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#121110;color:rgb
     const customApp = getCustomAppForIcon(activeApp);
     if (customApp) {
       return (
-        <CustomAppRunner
-          app={customApp}
-          launchContext={customAppLaunchContext?.appId === customApp.id ? customAppLaunchContext.context : null}
+        <CustomAppForegroundBoundary
+          key={customApp.id}
+          appName={customApp.name}
+          appId={customApp.id}
+          appVersion={customApp.version}
+          manifestId={customApp.manifest?.id}
           onClose={() => closeCustomAppRunner(customApp)}
-          onNotice={setNotice}
-        />
+        >
+          <CustomAppRunner
+            app={customApp}
+            launchContext={customAppLaunchContext?.appId === customApp.id ? customAppLaunchContext.context : null}
+            onClose={() => closeCustomAppRunner(customApp)}
+            onNotice={setNotice}
+          />
+        </CustomAppForegroundBoundary>
       );
     }
 
@@ -3934,6 +3947,10 @@ html,body{margin:0;padding:0;width:100%;height:100%;background:#121110;color:rgb
 
     if (activeApp === "mixology") {
       return <MixologyApp onClose={() => setActiveApp(null)} />;
+    }
+
+    if (activeApp === "scripthub") {
+      return <ScriptHubApp onClose={() => setActiveApp(null)} />;
     }
 
     if (activeApp === "appmarket") {

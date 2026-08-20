@@ -31,6 +31,7 @@ import { loadCustomAppChatPlusActions, type RegisteredCustomAppChatPlusAction } 
 import { CUSTOM_APPS_UPDATED_EVENT, getInstalledCustomApp } from "@/lib/custom-app-storage";
 import { toCustomAppIconId, type InstalledCustomApp } from "@/lib/custom-app-types";
 import { CustomAppRunner } from "@/components/app-market/custom-app-runner";
+import { CustomAppForegroundBoundary } from "@/components/app-market/custom-app-failure";
 
 import { ChatSettingsPanel } from "./chat-settings-panel";
 import { VoiceCallScreen } from "./voice-call-screen";
@@ -48,7 +49,7 @@ import { scheduleFollowUp, cancelFollowUp } from "@/lib/follow-up-service";
 import { useKeyboardDismissAutoSend } from "@/components/chat/use-keyboard-dismiss-auto-send";
 import { PENDING_REPLY_PREFIX } from "@/lib/friend-request-engine";
 import type { UserIdentity } from "@/components/settings/user-identity";
-import { AlertCircle, Blocks, Check, Trash2, User, ChevronLeft, ChevronRight, Clapperboard, Clock, Gift, Languages, Loader2, MoreHorizontal, X } from "lucide-react";
+import { AlertCircle, Blocks, Check, Trash2, User, ChevronLeft, ChevronRight, Clapperboard, Clock, Gift, Languages, Loader2, MoreHorizontal, ScrollText, X } from "lucide-react";
 import { setDebugChatState } from "@/lib/debug-store";
 import { SessionCustomCSS } from "@/components/ui/session-custom-css";
 import { setChatActive } from "@/lib/music-action-queue";
@@ -284,6 +285,7 @@ const GENERATING_PREFIX = "chat-generating:";
 const CHAT_BG_COMPLETE = "chat-bg-complete";
 const CHAT_OFFLINE_MODE_PREFIX = "chat-offline-mode:";
 const CHAT_THEATER_MODE_PREFIX = "chat-theater-mode:";
+const CHAT_SCRIPTHUB_MODE_PREFIX = "chat-scripthub-mode:";
 const GENERATING_LOCK_TTL_MS = 5 * 60 * 1000;
 const OFFLINE_INITIAL_LOAD = 10;
 const OFFLINE_LOAD_MORE_COUNT = 10;
@@ -601,6 +603,7 @@ const ChatTextInputBar = memo(forwardRef<ChatTextInputHandle, {
     muteUntilMs: number;
     isGenerating: boolean;
     theaterMode: boolean;
+    scripthubLinked: boolean;
     enterToSendEnabled: boolean;
     quotingMessage: ChatMessage | null;
     showEmojiPanel: boolean;
@@ -614,6 +617,7 @@ const ChatTextInputBar = memo(forwardRef<ChatTextInputHandle, {
     onToggleStickerPanel: () => void;
     onTogglePlusMenu: () => void;
     onToggleTheaterMode: () => void;
+    onToggleScripthubLink: () => void;
     onCloseTheaterMode: () => void;
     onOpenRichModal: (modal: RichModalKind) => void;
     onOpenCustomPlusAction: (action: RegisteredCustomAppChatPlusAction) => void;
@@ -632,6 +636,7 @@ const ChatTextInputBar = memo(forwardRef<ChatTextInputHandle, {
     muteUntilMs,
     isGenerating,
     theaterMode,
+    scripthubLinked,
     enterToSendEnabled,
     quotingMessage,
     showEmojiPanel,
@@ -645,6 +650,7 @@ const ChatTextInputBar = memo(forwardRef<ChatTextInputHandle, {
     onToggleStickerPanel,
     onTogglePlusMenu,
     onToggleTheaterMode,
+    onToggleScripthubLink,
     onCloseTheaterMode,
     onOpenRichModal,
     onOpenCustomPlusAction,
@@ -717,6 +723,7 @@ const ChatTextInputBar = memo(forwardRef<ChatTextInputHandle, {
         { icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--c-text)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><line x1="7" y1="8" x2="17" y2="8" /><line x1="7" y1="12" x2="14" y2="12" /><line x1="7" y1="16" x2="11" y2="16" /></svg>, label: "文字图片", onClick: () => onOpenRichModal("text_photo") },
         { icon: <AlertCircle size={22} strokeWidth={1.5} color="var(--c-text)" />, label: "系统指令", onClick: () => onOpenRichModal("system_instruction") },
         { icon: <Clapperboard size={22} strokeWidth={1.5} color={theaterMode ? "var(--c-icon-active)" : "var(--c-text)"} />, label: "番外指令模式", active: theaterMode, onClick: onToggleTheaterMode },
+        { icon: <ScrollText size={22} strokeWidth={1.5} color={scripthubLinked ? "var(--c-icon-active)" : "var(--c-text)"} />, label: "跑团联动", active: scripthubLinked, onClick: onToggleScripthubLink },
         { icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--c-text)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M23 7l-7 5 7 5V7z" /><rect x="1" y="5" width="15" height="14" rx="2" ry="2" /></svg>, label: "视频通话", onClick: onStartVideoCall },
         { icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--c-text)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z" /><path d="M19 10v2a7 7 0 0 1-14 0v-2" /><line x1="12" y1="19" x2="12" y2="22" /></svg>, label: "语音通话", onClick: onStartVoiceCall },
         { icon: <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--c-text)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2" /><line x1="2" y1="10" x2="22" y2="10" /></svg>, label: "红包", onClick: () => onOpenRichModal("red_packet") },
@@ -1064,6 +1071,7 @@ export function ChatRoom({ session, onBack }: ChatRoomProps) {
     const [isGenerating, setIsGenerating] = useState(false);
     const [offlineMode, setOfflineMode] = useState(false);
     const [theaterMode, setTheaterMode] = useState(() => kvGet(CHAT_THEATER_MODE_PREFIX + session.id) === "1");
+    const [scripthubLinked, setScripthubLinked] = useState(() => kvGet(CHAT_SCRIPTHUB_MODE_PREFIX + session.id) === "1");
     const [offlineTurns, setOfflineTurns] = useState<ChatOfflineTurn[]>([]);
     const [offlineVisibleCount, setOfflineVisibleCount] = useState(OFFLINE_INITIAL_LOAD);
     const [pendingOfflineUserText, setPendingOfflineUserText] = useState("");
@@ -1117,6 +1125,10 @@ export function ChatRoom({ session, onBack }: ChatRoomProps) {
 
     useEffect(() => {
         setTheaterMode(kvGet(CHAT_THEATER_MODE_PREFIX + session.id) === "1");
+    }, [session.id]);
+
+    useEffect(() => {
+        setScripthubLinked(kvGet(CHAT_SCRIPTHUB_MODE_PREFIX + session.id) === "1");
     }, [session.id]);
 
     // 聊天插件：进入聊天广播 session.opened
@@ -3913,6 +3925,20 @@ export function ChatRoom({ session, onBack }: ChatRoomProps) {
         setTheaterMode(false);
     };
 
+    const toggleScripthubLink = () => {
+        setShowPlusMenu(false);
+        setShowEmojiPanel(false);
+        setShowStickerPanel(false);
+        setScripthubLinked(prev => {
+            const next = !prev;
+            if (next) kvSet(CHAT_SCRIPTHUB_MODE_PREFIX + session.id, "1");
+            else kvRemove(CHAT_SCRIPTHUB_MODE_PREFIX + session.id);
+            if (next) showChatToast("跑团联动已开启：聊天将计入剧本回合");
+            else showChatToast("跑团联动已关闭：仅普通聊天");
+            return next;
+        });
+    };
+
     const handleOfflineSend = (inputText: string): boolean => {
         if (isOfflineGenerating) {
             showChatToast("线下回复生成中");
@@ -5887,6 +5913,7 @@ export function ChatRoom({ session, onBack }: ChatRoomProps) {
 	                muteUntilMs={session.isGroup && session.groupMutes?.[GROUP_SELF_KEY] ? new Date(session.groupMutes[GROUP_SELF_KEY]).getTime() : 0}
 	                isGenerating={isGenerating}
 	                theaterMode={theaterMode}
+	                scripthubLinked={scripthubLinked}
 	                enterToSendEnabled={enterToSendEnabled}
 	                quotingMessage={quotingMessage}
                 showEmojiPanel={showEmojiPanel}
@@ -5900,6 +5927,7 @@ export function ChatRoom({ session, onBack }: ChatRoomProps) {
 	                onToggleStickerPanel={() => { setShowStickerPanel(!showStickerPanel); setShowEmojiPanel(false); setShowPlusMenu(false); }}
 	                onTogglePlusMenu={() => { setShowPlusMenu(!showPlusMenu); setShowEmojiPanel(false); setShowStickerPanel(false); }}
 	                onToggleTheaterMode={toggleTheaterMode}
+	                onToggleScripthubLink={toggleScripthubLink}
 	                onCloseTheaterMode={closeTheaterMode}
 	                onOpenRichModal={(modal) => { setShowPlusMenu(false); setRichModal(modal); }}
                 onOpenCustomPlusAction={handleOpenCustomPlusAction}
@@ -6007,13 +6035,23 @@ export function ChatRoom({ session, onBack }: ChatRoomProps) {
                             </button>
                         </div>
                         <div className="chat-custom-app-body">
-                            <CustomAppRunner
-                                app={activeCustomChatPlus.app}
-                                launchContext={activeCustomChatPlus.launchContext}
-                                embedded
+                            <CustomAppForegroundBoundary
+                                key={activeCustomChatPlus.app.id}
+                                appName={activeCustomChatPlus.app.name}
+                                appId={activeCustomChatPlus.app.id}
+                                appVersion={activeCustomChatPlus.app.version}
+                                manifestId={activeCustomChatPlus.app.manifest?.id}
+                                closeLabel="返回聊天"
                                 onClose={() => setActiveCustomChatPlus(null)}
-                                onNotice={showChatToast}
-                            />
+                            >
+                                <CustomAppRunner
+                                    app={activeCustomChatPlus.app}
+                                    launchContext={activeCustomChatPlus.launchContext}
+                                    embedded
+                                    onClose={() => setActiveCustomChatPlus(null)}
+                                    onNotice={showChatToast}
+                                />
+                            </CustomAppForegroundBoundary>
                         </div>
                     </div>
                 </div>
