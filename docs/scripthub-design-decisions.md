@@ -90,6 +90,7 @@
   - `linked_diary`：NPC 写手记 → `deliverLinkedDiary` 走 `createDiaryEntry` → `diary-entries-updated` 事件。
   - 角色库：NPC 已在 `ensureScriptNpcs` 建卡时写入角色库（画布自动展示），天然打通。
   - 反向：`buildLinkedAppsContext` 读取朋友圈/日历/手记最近内容注入 DM 上下文，让剧情与这些联动应用呼应。
+- **联动范围（用户确认）**：私聊 / 群聊 / 朋友圈 / 日历 / 角色库 / 手记 全部打通；**购物金钱除外**（用户明确不做购物联动）。AI 图片生成延后。
 - **API 配置**：回合引擎需 `settings-storage` 有可用 API 配置（resolveBinding 的 scripthub slot 或 configs[0]），未配置时报错提示用户去设置添加。
 - **剧本即世界书（聊天不跑偏）**：生成 NPC 后自动 `bindScriptWorldBooks` —— 把剧本全文建为一个**恒激活（constant:true）世界书**（名 `剧本·剧本名`），并绑定到该剧本全部 NPC 的私聊（chat）+ 群聊（group_chat）槽位。这样聊天引擎扮演这些 NPC 时始终读取剧本约束，不会"乱聊"。删除剧本时 `cleanupScriptWorldBooks` 清理世界书与绑定引用。
 - **NPC 解析多格式兼容（实测 18 剧本）**：
