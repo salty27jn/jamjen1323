@@ -26,7 +26,7 @@ import { loadUserIdentities } from "@/lib/settings-storage";
 import type { UserIdentity } from "@/components/settings/user-identity";
 import { loadCharacters } from "@/lib/character-storage";
 import type { Character } from "@/lib/character-types";
-import { runScriptTurn, applyStateChanges, formatScriptStats, deliverLinkedMessages } from "@/lib/scripthub-engine";
+import { runScriptTurn, applyStateChanges, formatScriptStats, deliverLinkedMessages, deliverLinkedPosts, deliverLinkedCalendar, deliverLinkedDiary } from "@/lib/scripthub-engine";
 import { ChatPageHeader } from "@/components/chat/chat-page-header";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import type { ChatMessage } from "@/lib/chat-storage";
@@ -501,6 +501,10 @@ function PlayingScreen({ scriptId, onBack, onClose }: { scriptId: string; onBack
       if (result.linkedMessages.length > 0) {
         deliverLinkedMessages(getScript(scriptId)!, result.linkedMessages);
       }
+      // 联动应用：朋友圈 / 日历 / 手记 真实写入
+      if (result.linkedPosts.length > 0) deliverLinkedPosts(getScript(scriptId)!, result.linkedPosts);
+      if (result.linkedCalendar.length > 0) deliverLinkedCalendar(getScript(scriptId)!, result.linkedCalendar);
+      if (result.linkedDiary.length > 0) deliverLinkedDiary(getScript(scriptId)!, result.linkedDiary);
     } catch (err) {
       if (token !== genTokenRef.current) return;
       setError(err instanceof Error ? err.message : "生成失败，请重试");

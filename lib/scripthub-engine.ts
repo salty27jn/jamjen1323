@@ -5,6 +5,10 @@ import type { ScripthubScript } from "./scripthub-storage";
 import { kvGet } from "./kv-db";
 import { loadChatSessions, loadChatMessages, pushChatMessage } from "./chat-storage";
 import { loadCharacters } from "./character-storage";
+import { addMomentPost, loadMomentPosts } from "./moments-storage";
+import { upsertCalendarScheduleItem, buildCalendarScheduleMarker } from "./calendar-storage";
+import { getWeekStartIso } from "./calendar-utils";
+import { createDiaryEntry, loadDiaryEntries } from "./diary-entry-storage";
 
 export const SCRIPTHUB_BINDING_APP_ID = "scripthub";
 export const CHAT_SCRIPTHUB_MODE_PREFIX = "chat-scripthub-mode:";
@@ -60,10 +64,16 @@ const REPLY_FORMAT = [
   '  "choices": ["选项A（效果）", "选项B（效果）", "选项C（效果）", "选项D（效果）"],',
   '  "state_changes": { "好感值": 2, "理智值": -5 },',
   '  "status_notes": ["剧情播报/结算条目，如：新委讬登记完成", "酬劳 3200（先付一半）"],',
-  '  "linked_messages": [{"sender_name": "NPC名", "content": "NPC发给玩家的私聊内容（粤语可繁体）"}]',
+  '  "linked_messages": [{"sender_name": "NPC名", "content": "NPC发给玩家的私聊内容（粤语可繁体）"}],',
+  '  "linked_posts": [{"author_name": "NPC名", "content": "NPC发的朋友圈正文"}],',
+  '  "linked_calendar": [{"date": "2026-08-21", "start_time": "10:00", "end_time": "11:00", "title": "事件标题", "location": "地点", "owner_name": "归属NPC名"}],',
+  '  "linked_diary": [{"author_name": "NPC名", "title": "手记标题", "body": "手记正文"}]',
   "}",
   "state_changes：本回合发生的属性增减（可为空 {}）。status_notes：本回合的剧情播报/结算条目（可为空 []）。",
   "linked_messages：本回合若有 NPC 通过聊天软件给玩家发消息（真实出现在私聊/群聊界面），就列出；没有则为空数组 []。sender_name 必须是剧本 NPC 的角色卡名字。",
+  "linked_posts：本回合 NPC 发的朋友圈（真实出现在朋友圈）；author_name 必须是剧本 NPC 名字；没有为空 []。",
+  "linked_calendar：本回合新增到日历的剧情事件（真实写入对应 NPC 或玩家的日历）；owner_name 可为 NPC 名或「玩家」；date 为 YYYY-MM-DD；没有为空 []。",
+  "linked_diary：本回合 NPC 写的手记/日记（真实写入手记应用）；author_name 必须是剧本 NPC 名字；没有为空 []。",
 ].join("\n");
 
 export type ScriptTurnResult = {
@@ -72,6 +82,9 @@ export type ScriptTurnResult = {
   stateNotes: string[];
   stateChanges: Record<string, number>;
   linkedMessages: { senderName: string; content: string }[];
+  linkedPosts: { authorName: string; content: string }[];
+  linkedCalendar: { date: string; startTime: string; endTime: string; title: string; location?: string; ownerName: string }[];
+  linkedDiary: { authorName: string; title: string; body: string }[];
 };
 
 export function formatScriptStats(script: ScripthubScript): string {
@@ -172,6 +185,56 @@ export function buildLinkedChatContext(script: ScripthubScript, maxPerSession = 
 }
 
 /**
+ * 读取剧本绑定的朋友圈 / 日历 / 手记最近内容，注入回合上下文，
+ * 让 DM 的剧情与这些联动应用呼应（玩家在应用里的互动影响后文）。
+ */
+export function buildLinkedAppsContext(script: ScripthubScript): string {
+  const chars = loadCharacters();
+  const npcNames = new Set(script.npcIds.map(id => chars.find(c => c.id === id)?.name).filter(Boolean) as string[]);
+  const blocks: string[] = [];
+
+  // 朋友圈：剧本 NPC 最近发的帖（按角色过滤）
+  try {
+    const posts = loadMomentPosts().slice(0, 12);
+    const npcPosts = posts.filter(p => p.authorType === "character" && npcNames.has(p.authorId));
+    if (npcPosts.length) {
+      const lines = npcPosts.map(p => {
+        const author = chars.find(c => c.id === p.authorId)?.name || p.authorId;
+        return author + "：" + p.content;
+      });
+      blocks.push("【朋友圈】\n" + lines.join("\n"));
+    }
+  } catch {
+    // ignore
+  }
+
+  // 日历：本周剧本 NPC 的日程
+  try {
+    for (const charId of script.npcIds.slice(0, 5)) {
+      const marker = buildCalendarScheduleMarker("character", charId, getWeekStartIso(new Date()));
+      if (marker) blocks.push("【日历】" + marker);
+    }
+  } catch {
+    // ignore
+  }
+
+  // 手记：剧本 NPC 最近写的手记
+  try {
+    const entries = loadDiaryEntries()
+      .filter(e => script.npcIds.includes(e.characterId))
+      .slice(0, 8);
+    if (entries.length) {
+      const lines = entries.map(e => e.characterName + "《" + e.title + "》：" + e.body.slice(0, 120));
+      blocks.push("【手记】\n" + lines.join("\n"));
+    }
+  } catch {
+    // ignore
+  }
+
+  return blocks.join("\n\n");
+}
+
+/**
  * 运行一个剧本回合：把玩家行动 + 历史喂给 DM，生成正文、4 个选项与属性结算。
  * 成功后由调用方把 narration push 进 script.messages 并更新 stats。
  */
@@ -205,10 +268,13 @@ export async function runScriptTurn(
 
   // 联动聊天：跑团联动开启的私聊/群聊里玩家与 NPC 的对话，作为剧情期间的社交行为
   const linkedChat = buildLinkedChatContext(script);
+  // 联动应用：朋友圈/日历/手记最近内容
+  const linkedApps = buildLinkedAppsContext(script);
 
   const parts: string[] = [];
   if (history) parts.push("# 剧情历史\n" + history);
   if (linkedChat) parts.push("# 剧情期间玩家与 NPC 的聊天记录\n" + linkedChat + "\n（以上聊天发生在剧情推进期间，请据此自然回应并计入剧情影响）");
+  if (linkedApps) parts.push("# 联动应用动态\n" + linkedApps + "\n（以上来自朋友圈/日历/手记，请据此保持剧情连贯）");
   parts.push("# 玩家本轮行动\n" + userText);
   const userMsg = parts.join("\n\n");
 
@@ -248,7 +314,36 @@ export async function runScriptTurn(
         .map((m: Record<string, unknown>) => ({ senderName: m.sender_name as string, content: m.content as string }))
     : [];
 
-  return { narration, choices, stateNotes, stateChanges, linkedMessages };
+  const linkedPosts: { authorName: string; content: string }[] = Array.isArray(p.linked_posts)
+    ? p.linked_posts
+        .filter((m: unknown) => m && typeof m === "object" && typeof (m as { author_name?: unknown }).author_name === "string" && typeof (m as { content?: unknown }).content === "string")
+        .map((m: Record<string, unknown>) => ({ authorName: m.author_name as string, content: m.content as string }))
+    : [];
+
+  const linkedCalendar: ScriptTurnResult["linkedCalendar"] = Array.isArray(p.linked_calendar)
+    ? p.linked_calendar
+        .filter((m: unknown) => m && typeof m === "object" && typeof (m as { title?: unknown }).title === "string" && typeof (m as { date?: unknown }).date === "string")
+        .map((m: Record<string, unknown>) => ({
+          date: m.date as string,
+          startTime: typeof m.start_time === "string" ? m.start_time : "10:00",
+          endTime: typeof m.end_time === "string" ? m.end_time : "11:00",
+          title: m.title as string,
+          location: typeof m.location === "string" ? m.location : undefined,
+          ownerName: typeof m.owner_name === "string" ? m.owner_name : "玩家",
+        }))
+    : [];
+
+  const linkedDiary: ScriptTurnResult["linkedDiary"] = Array.isArray(p.linked_diary)
+    ? p.linked_diary
+        .filter((m: unknown) => m && typeof m === "object" && typeof (m as { author_name?: unknown }).author_name === "string" && typeof (m as { body?: unknown }).body === "string")
+        .map((m: Record<string, unknown>) => ({
+          authorName: m.author_name as string,
+          title: typeof m.title === "string" ? m.title : "无题",
+          body: m.body as string,
+        }))
+    : [];
+
+  return { narration, choices, stateNotes, stateChanges, linkedMessages, linkedPosts, linkedCalendar, linkedDiary };
 }
 
 /**
@@ -283,6 +378,99 @@ export function deliverLinkedMessages(script: ScripthubScript, messages: { sende
       senderName: npc.name,
     });
     delivered += 1;
+  }
+  return delivered;
+}
+
+/**
+ * 把回合里 NPC 发的朋友圈真实写入朋友圈（所有联系人可见），并刷新 UI。
+ * 按 author_name 匹配剧本 NPC 角色卡；找不到作者则跳过。
+ */
+export function deliverLinkedPosts(script: ScripthubScript, posts: { authorName: string; content: string }[]): number {
+  if (posts.length === 0) return 0;
+  const chars = loadCharacters();
+  const contacts = loadChatSessions();
+  let delivered = 0;
+  for (const p of posts) {
+    const npc = chars.find(c => c.name === p.authorName || c.name.includes(p.authorName) || p.authorName.includes(c.name));
+    if (!npc) continue;
+    const visibility = contacts.map(c => c.contactId).filter(Boolean);
+    const post = addMomentPost({
+      authorType: "character",
+      authorId: npc.id,
+      content: p.content,
+      visibility,
+    });
+    if (post) delivered += 1;
+  }
+  if (delivered > 0 && typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("moments-updated"));
+  }
+  return delivered;
+}
+
+/**
+ * 把回合里的剧情事件写入对应归属方（NPC 或玩家）的日历，并刷新 UI。
+ */
+export function deliverLinkedCalendar(script: ScripthubScript, events: ScriptTurnResult["linkedCalendar"]): number {
+  if (events.length === 0) return 0;
+  const chars = loadCharacters();
+  let delivered = 0;
+  for (const ev of events) {
+    let ownerId: string | null = null;
+    let ownerType: "character" | "user" = "character";
+    if (ev.ownerName === "玩家" || ev.ownerName === "player" || ev.ownerName === "我") {
+      ownerType = "user";
+      ownerId = "user";
+    } else {
+      const npc = chars.find(c => c.name === ev.ownerName || c.name.includes(ev.ownerName) || ev.ownerName.includes(c.name));
+      if (!npc) continue;
+      ownerId = npc.id;
+    }
+    if (!ownerId) continue;
+    try {
+      upsertCalendarScheduleItem(ownerType, ownerId, getWeekStartIso(new Date(ev.date)), {
+        date: ev.date,
+        startTime: ev.startTime,
+        endTime: ev.endTime,
+        title: ev.title,
+        location: ev.location ?? "",
+        emoji: "📋",
+        source: "generated",
+      });
+      delivered += 1;
+    } catch {
+      // 日期格式异常跳过
+    }
+  }
+  if (delivered > 0 && typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("calendar-updated"));
+  }
+  return delivered;
+}
+
+/**
+ * 把回合里 NPC 写的手记真实写入日记应用，并刷新 UI。
+ */
+export function deliverLinkedDiary(script: ScripthubScript, entries: ScriptTurnResult["linkedDiary"]): number {
+  if (entries.length === 0) return 0;
+  const chars = loadCharacters();
+  let delivered = 0;
+  for (const e of entries) {
+    const npc = chars.find(c => c.name === e.authorName || c.name.includes(e.authorName) || e.authorName.includes(c.name));
+    if (!npc) continue;
+    createDiaryEntry({
+      characterId: npc.id,
+      characterName: npc.name,
+      title: e.title,
+      body: e.body,
+      blocks: [{ type: "paragraph", text: e.body }],
+      trigger: "manual",
+    });
+    delivered += 1;
+  }
+  if (delivered > 0 && typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("diary-entries-updated"));
   }
   return delivered;
 }

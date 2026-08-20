@@ -84,6 +84,12 @@
 - **私聊/群聊双向打通（本轮核心）**：
   - 读取：回合生成时 `buildLinkedChatContext` 扫描剧本绑定的私聊/群聊中「跑团联动」开启的会话，读最近消息注入 DM 上下文影响后文。
   - 推送：DM 回合 JSON 生成 `linked_messages`（NPC 发私聊），`deliverLinkedMessages` 按 NPC 名匹配角色卡 → `pushChatMessage` 真实推送到私聊/群聊会话（置未读，出现在聊天界面，可点进去回复）。
+- **四联动打通（除购物外，朋友圈/日历/角色库/手记）**：回合引擎 JSON 增加三个真实联动字段，剧情可触发对应应用真实写入并刷新 UI：
+  - `linked_posts`：NPC 发朋友圈 → `deliverLinkedPosts` 走 `addMomentPost`（所有联系人可见）→ `moments-updated` 事件。
+  - `linked_calendar`：剧情事件写入日历 → `deliverLinkedCalendar` 走 `upsertCalendarScheduleItem`（NPC 或玩家归属）→ `calendar-updated` 事件。
+  - `linked_diary`：NPC 写手记 → `deliverLinkedDiary` 走 `createDiaryEntry` → `diary-entries-updated` 事件。
+  - 角色库：NPC 已在 `ensureScriptNpcs` 建卡时写入角色库（画布自动展示），天然打通。
+  - 反向：`buildLinkedAppsContext` 读取朋友圈/日历/手记最近内容注入 DM 上下文，让剧情与这些联动应用呼应。
 - **API 配置**：回合引擎需 `settings-storage` 有可用 API 配置（resolveBinding 的 scripthub slot 或 configs[0]），未配置时报错提示用户去设置添加。
 - **剧本即世界书（聊天不跑偏）**：生成 NPC 后自动 `bindScriptWorldBooks` —— 把剧本全文建为一个**恒激活（constant:true）世界书**（名 `剧本·剧本名`），并绑定到该剧本全部 NPC 的私聊（chat）+ 群聊（group_chat）槽位。这样聊天引擎扮演这些 NPC 时始终读取剧本约束，不会"乱聊"。删除剧本时 `cleanupScriptWorldBooks` 清理世界书与绑定引用。
 - **NPC 解析多格式兼容（实测 18 剧本）**：
