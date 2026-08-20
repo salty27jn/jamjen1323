@@ -180,8 +180,8 @@ export function parseScriptText(content: string, fileName: string): ParsedScript
   if (!title) title = lines[0]?.slice(0, 30) ?? "未命名剧本";
   title = title.replace(/^["「『【\s]+|["」』】\s]+$/g, "");
 
-  // 模式启发：文本含结构化属性关键词 → 模式A；否则模式B
-  const attrKeywords = /好感值|好感度|生命值|理智值|混乱值|行动点|金钱|修为|体力|魅力|信任值|心情值|体力值/;
+  // 模式启发：剧本含结构化属性/系统关键词 → 模式A（全结构化）；否则模式B（有角色无数值）
+  const attrKeywords = /好感值|好感度|生命值|理智值|混乱值|行动点|金钱|修为|体力|魅力|信任值|心情值|体力值|厌恶值|剧情进度|好感度区间|好感度系统|关系网|状态栏格式|判定系统|回合|SP|SAN|HP/;
   const mode: ScripthubMode = attrKeywords.test(content) ? "A" : "B";
 
   return { title, mode, emoji: pickDefaultEmoji(mode) };
@@ -200,43 +200,107 @@ export type NpcCandidate = {
   persona: string;
 };
 
-/** 从剧本原文启发式提取「相关角色」段落中的 NPC 块。 */
+/** 从剧本原文启发式提取 NPC 角色（支持多种剧本格式，原文搬运零改编）。 */
 export function extractNpcCandidates(content: string): NpcCandidate[] {
   const lines = content.split(/\r?\n/);
-  const startIdx = lines.findIndex(l => /相关角色|角色创建|NPC(角色|列表|设定)?|角色设定/.test(l));
-  if (startIdx === -1) return [];
-
   const out: NpcCandidate[] = [];
-  let current: { name: string; rows: string[] } | null = null;
-
-  const push = () => {
-    if (!current) return;
-    const persona = current.rows.join("\n").replace(/【|】/g, "").trim();
-    if (persona) out.push({ name: current.name, persona });
-    current = null;
+  const seen = new Set<string>();
+  const push = (name: string, persona: string) => {
+    const n = name.trim();
+    const p = persona.replace(/【|】/g, "").trim();
+    if (!n || seen.has(n)) return;
+    seen.add(n);
+    if (p) out.push({ name: n, persona: p });
   };
 
-  for (let i = startIdx; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue;
-    // 下一个段落标题（数值/系统/语言规则等）终止当前块
-    if (/^(4|5|6|7|8|9)\.|^第|^主要数值|^系统指令|^回覆格式|^严格补充|^【/.test(line)) {
-      if (current) push();
-      break;
+  // 章节/号码标题，用于跳过
+  const isSectionHeading = (l: string) => /^(第|步骤|一、|二、|三、|四、|五、|六、|七、|八、|九、|十、|\d+[\.、])/.test(l)
+    || /^##?\s*[一二三四五六七八九十\d]+[、.．]/.test(l)
+    || /^(系统指令|主要数值|回覆格式|严格补充|语言规则|世界观|核心|感情|判定)/.test(l);
+
+  // 剧本是否包含"角色卡定义"特征（有角色卡段落的剧本才启用格式1/2，
+  // 避免把世界书/DM底座剧本里的【输出格式】块误当角色）
+  const hasRoleCardSection = /角色创建|相关角色|角色卡|NPC角色|【玩家】|【主角】|姓名\s*[:：]?\s*【[^】]+】/.test(content);
+
+  if (hasRoleCardSection) {
+    // ── 格式1：姓名：【X】列表（如香港灵异/恶毒女配的角色创建段） ──
+    const blockStart = lines.findIndex(l => /相关角色|角色创建|角色卡|NPC(角色|列表|设定)?|角色设定/.test(l));
+    if (blockStart !== -1) {
+      let cur: { name: string; rows: string[] } | null = null;
+      const flush = () => {
+        if (!cur) return;
+        push(cur.name, cur.rows.join("\n"));
+        cur = null;
+      };
+      for (let i = blockStart; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+        if (isSectionHeading(line) && !/姓名/.test(line)) {
+          if (cur) flush();
+          if (/^(4|5|6|7|8|9)\.|^第|^主要数值|^系统指令|^回覆格式|^严格补充/.test(line)) break;
+          continue;
+        }
+        const nm = line.match(/姓名\s*[:：]?\s*【([^】]+)】/);
+        if (nm) {
+          if (cur) flush();
+          const raw = nm[1].trim();
+          if (!raw) continue;
+          cur = { name: raw, rows: [line.replace(/^\s*[·•-]\s*/, "")] };
+          continue;
+        }
+        if (cur) cur.rows.push(line.replace(/^\s*[·•-]\s*/, ""));
+      }
+      if (cur) flush();
     }
-    const nameMatch = line.match(/姓名\s*[:：]?\s*【([^】]+)】/);
-    if (nameMatch) {
-      if (current) push();
-      const raw = nameMatch[1].trim();
-      if (!raw) continue;
-      current = { name: raw, rows: [line.replace(/^\s*[·•-]\s*/, "")] };
-      continue;
-    }
-    if (current) {
-      current.rows.push(line.replace(/^\s*[·•-]\s*/, ""));
+
+    // ── 格式2：【角色名】方括号块（如租客模拟器的【房东】） ──
+    const bracketRe = /^【([^】\s]{1,12})】\s*$/;
+    const bracketBlockWords = /玩家|主角|你|我|系统|DM|通用|共用|机制|处理|补充|提醒|设置|信息|状态|规则|指令|格式|流程|边界|适用|当前|原文|附件|备注|示例|协议|面板|操作|登记|初始化|确认|剧情|正文|行动|观测|数据|局势|方向|场景|设定|名|类型|回声|方向|字段|大纲|章节|草案|版本|更新|提示|说明|图片|圖片|描述|提示词|企划|复盘|里程碑|判定/;
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      const bm = line.match(bracketRe);
+      if (!bm) continue;
+      const name = bm[1];
+      if (bracketBlockWords.test(name)) continue;
+      // 收集该块下直到下一个【 或 章节标题 的内容
+      const rows: string[] = [];
+      for (let j = i + 1; j < lines.length; j++) {
+        const nl = lines[j].trim();
+        if (!nl) continue;
+        if (bracketRe.test(nl) || isSectionHeading(nl)) break;
+        rows.push(nl);
+      }
+      if (rows.length) push(name, [line, ...rows].join("\n"));
     }
   }
-  if (current) push();
+
+  // ── 格式3：# 角色名（外文原名）markdown 标题角色卡（如李帝努（Lee Jeno））。
+  // 特征：括号里含拉丁字母（英文/韩文原名），且不是 CP 组合名（×/&/和）。
+  const mdRoleWords = /角色卡|模拟器|剧本|标题|定位|信息|设定|世界|故事|核心|机制|规则|指令|格式|附录|目录|大纲|模型|公开|关系|引擎/;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!/^#\s/.test(line)) continue;
+    const m = line.match(/^#\s*(.+)$/);
+    if (!m) continue;
+    const raw = m[1].trim();
+    if (isSectionHeading(raw)) continue;
+    // 括号内容必须含拉丁字母（英文/韩文原名），排除纯中文说明与 CP 组合
+    const paren = raw.match(/[（(]([^（）()]{1,40})[）)]/);
+    if (!paren) continue;
+    const inside = paren[1];
+    if (!/[A-Za-z가-힣]/.test(inside)) continue;
+    if (/[×x×&和+＋]/.test(inside)) continue;
+    const name = raw.replace(/[（(][^）)]*[）)]/g, "").trim();
+    if (!name || mdRoleWords.test(name)) continue;
+    const rows: string[] = [line];
+    for (let j = i + 1; j < Math.min(lines.length, i + 25); j++) {
+      const nl = lines[j].trim();
+      if (/^#\s/.test(nl)) break;
+      if (nl) rows.push(nl);
+    }
+    push(name, rows.join("\n"));
+  }
+
   return out;
 }
 
