@@ -85,6 +85,13 @@
   - 读取：回合生成时 `buildLinkedChatContext` 扫描剧本绑定的私聊/群聊中「跑团联动」开启的会话，读最近消息注入 DM 上下文影响后文。
   - 推送：DM 回合 JSON 生成 `linked_messages`（NPC 发私聊），`deliverLinkedMessages` 按 NPC 名匹配角色卡 → `pushChatMessage` 真实推送到私聊/群聊会话（置未读，出现在聊天界面，可点进去回复）。
 - **API 配置**：回合引擎需 `settings-storage` 有可用 API 配置（resolveBinding 的 scripthub slot 或 configs[0]），未配置时报错提示用户去设置添加。
+- **剧本即世界书（聊天不跑偏）**：生成 NPC 后自动 `bindScriptWorldBooks` —— 把剧本全文建为一个**恒激活（constant:true）世界书**（名 `剧本·剧本名`），并绑定到该剧本全部 NPC 的私聊（chat）+ 群聊（group_chat）槽位。这样聊天引擎扮演这些 NPC 时始终读取剧本约束，不会"乱聊"。删除剧本时 `cleanupScriptWorldBooks` 清理世界书与绑定引用。
+- **NPC 解析多格式兼容（实测 18 剧本）**：
+  - 格式1 姓名：【X】列表（香港灵异/恶毒女配）
+  - 格式2 【角色名】方括号块（租客【房东】）
+  - 格式3 `# 角色名（外文原名）`角色卡（李帝努/罗渽民，括号须含拉丁字母、排除 CP 组合名）
+  - `hasRoleCardSection` 门控：无角色卡段的剧本（世界书/DM 底座）不启用格式1/2，避免误抓【输出格式】块
+  - 世界书类剧本 0 NPC 属正常：剧情中角色由 DM 现场扮演，剧本全文仍注入引擎；聊天端由世界书约束
 
 ## 七、开发环境备忘
 - 项目根：`C:\Users\win\AppData\Local\Temp\opencode\repos\ai-virtual-phone`

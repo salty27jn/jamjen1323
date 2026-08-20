@@ -17,6 +17,7 @@ import {
   hydrateScripthubStorage,
   nextAvailableEmoji,
   ensureScriptNpcs,
+  cleanupScriptWorldBooks,
   type ScripthubScript,
   type ScriptTurnMessage,
 } from "@/lib/scripthub-storage";
@@ -118,6 +119,7 @@ export function ScriptHubApp({ onClose }: { onClose: () => void }) {
   const handleDelete = useCallback((id: string) => {
     if (!window.confirm("删除剧本将解除全部绑定（不影响已创建的联系人）。确定删除？")) return;
     deleteScript(id);
+    cleanupScriptWorldBooks(id);
     setScripts(loadScripts());
   }, []);
 

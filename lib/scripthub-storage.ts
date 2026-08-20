@@ -1,6 +1,15 @@
 import Dexie from "dexie";
 import { createCharacter, loadCharacters, saveCharacters } from "./character-storage";
 import { addChatContact, createOrGetSession } from "./chat-storage";
+import {
+  createWorldBook,
+  loadWorldBooks,
+  saveWorldBooks,
+  loadBindingConfig,
+  getCharacterBinding,
+  setCharacterBinding,
+  saveBindingConfig,
+} from "./settings-storage";
 
 // ── 剧本工坊数据模型 ─────────────────────────────
 export type ScripthubMode = "A" | "B";
@@ -341,6 +350,95 @@ export function ensureScriptNpcs(scriptId: string): { created: number; chars: st
       npcIds: [...script.npcIds, ...npcIds],
       privateSessionIds: [...script.privateSessionIds, ...privateSessionIds],
     });
+    bindScriptWorldBooks(scriptId);
   }
   return { created: npcIds.length, chars: npcIds };
+}
+
+/**
+ * 剧本即世界书：把剧本原文注入为一个恒激活（constant）世界书条目，
+ * 并绑定到该剧本的所有 NPC 角色（私聊 chat + 群聊 group_chat），
+ * 让聊天引擎在扮演这些 NPC 时始终读取剧本约束，避免"乱聊"。
+ * 幂等：同名剧本世界书已存在则复用，不重复创建。
+ */
+export function bindScriptWorldBooks(scriptId: string): string | null {
+  const script = getScript(scriptId);
+  if (!script || script.npcIds.length === 0) return null;
+
+  const worldBookName = `剧本·${script.name}`;
+  const books = loadWorldBooks();
+  const existing = books.find(b => b.name === worldBookName);
+  if (existing) return existing.id;
+
+  const book = createWorldBook(worldBookName);
+  book.description = `导入剧本「${script.name}」时自动生成的世界书，约束角色扮演不偏离剧本设定。`;
+  book.entries = [{
+    uid: `wb-entry_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    key: script.npcIds.join(","),
+    content: script.content,
+    comment: "剧本原文（玩家原创，恒激活）",
+    use_regex: false,
+    disable: false,
+    constant: true,
+    position: "before_char",
+    insertion_order: 50,
+  }];
+  saveWorldBooks([book, ...books]);
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(new CustomEvent("settings-worldbooks-updated"));
+  }
+
+  // 绑定到该剧本所有 NPC 的私聊与群聊槽位（合并已有，避免覆盖用户手动绑的书）
+  const config = loadBindingConfig();
+  for (const charId of script.npcIds) {
+    const binding = getCharacterBinding(config, charId);
+    const next: typeof binding = {
+      ...binding,
+      appOverrides: { ...binding.appOverrides },
+    };
+    for (const appId of ["chat", "group_chat"] as const) {
+      const slot = next.appOverrides[appId] ?? {};
+      next.appOverrides[appId] = {
+        ...slot,
+        worldBookIds: [...new Set([...(slot.worldBookIds ?? []), book.id])],
+      };
+    }
+    config.characterBindings = setCharacterBinding(config, next).characterBindings;
+  }
+  saveBindingConfig(config);
+
+  return book.id;
+}
+
+/** 删除剧本时清理其世界书及绑定引用。 */
+export function cleanupScriptWorldBooks(scriptId: string): void {
+  const script = getScript(scriptId);
+  if (!script) return;
+  const worldBookName = `剧本·${script.name}`;
+  const books = loadWorldBooks();
+  const target = books.find(b => b.name === worldBookName);
+  if (target) {
+    saveWorldBooks(books.filter(b => b.id !== target.id));
+  }
+  // 从该剧本 NPC 的绑定中移除引用
+  const config = loadBindingConfig();
+  let changed = false;
+  for (const charId of script.npcIds) {
+    const binding = getCharacterBinding(config, charId);
+    let dirty = false;
+    const appOverrides: typeof binding.appOverrides = {};
+    for (const [appId, slot] of Object.entries(binding.appOverrides)) {
+      if (!slot) continue;
+      const worldBookIds = slot.worldBookIds?.filter(id => id !== target?.id) ?? [];
+      if (worldBookIds.length !== (slot.worldBookIds?.length ?? 0)) dirty = true;
+      if (worldBookIds.length || slot.apiConfigId || slot.presetId || slot.userIdentityId || (slot.regexIds?.length ?? 0)) {
+        appOverrides[appId] = { ...slot, worldBookIds };
+      }
+    }
+    if (dirty) {
+      config.characterBindings = setCharacterBinding(config, { ...binding, appOverrides }).characterBindings;
+      changed = true;
+    }
+  }
+  if (changed) saveBindingConfig(config);
 }
