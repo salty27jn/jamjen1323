@@ -8,7 +8,7 @@
  *   1. custom/idb-timeout.ts     —— IndexedDB 初始化超时兜底（防 iOS Safari 卡启动页）
  *   2. custom/splash-tap.tsx     —— 启动页整屏点击进入
  *   3. custom/edge-swipe-back.ts —— 手机壳左边缘右滑返回手势
- *   4. public/sw.js              —— CACHE_VERSION 升到 v6（强制刷新旧缓存）
+ *   4. public/sw.js              —— CACHE_VERSION 升到 v7（强制刷新旧缓存）
  *
  * 用法：node apply-custom.mjs [--check]
  *   --check 只检查并报告状态，不做修改（exit 0=全部已应用，1=有缺失）
@@ -130,15 +130,15 @@ const ENHANCEMENTS = [
     },
   },
   {
-    id: "sw.js: CACHE_VERSION v6",
-    check: () => read("public/sw.js").includes('CACHE_VERSION = "ai-phone-pwa-v6"'),
+    id: "sw.js: CACHE_VERSION v7",
+    check: () => read("public/sw.js").includes('CACHE_VERSION = "ai-phone-pwa-v7"'),
     apply: () => {
       const p = join(ROOT, "public", "sw.js");
       const c = readFileSync(p, "utf8");
-      if (c.includes("ai-phone-pwa-v6")) return;
+      if (c.includes("ai-phone-pwa-v7")) return;
       const next = c.replace(
         'CACHE_VERSION = "ai-phone-pwa-v4"',
-        'CACHE_VERSION = "ai-phone-pwa-v6"',
+        'CACHE_VERSION = "ai-phone-pwa-v7"',
       );
       if (next === c) throw new Error("sw.js CACHE_VERSION 锚点未找到");
       writeFileSync(p, next, "utf8");
