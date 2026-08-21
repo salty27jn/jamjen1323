@@ -50,7 +50,7 @@ const S: Record<string, React.CSSProperties> = {
   label: { fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(200,160,100,0.5)", marginBottom: 6, letterSpacing: "0.08em" },
 };
 
-export function ScriptHubApp({ onClose }: { onClose: () => void }) {
+export function ScriptHubApp({ onClose, onOpenSettings }: { onClose: () => void; onOpenSettings: () => void }) {
   const [view, setView] = useState<View>("home");
   const [scripts, setScripts] = useState<ScripthubScript[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -134,6 +134,7 @@ export function ScriptHubApp({ onClose }: { onClose: () => void }) {
         onBack={() => { setView("home"); setScripts(loadScripts()); }}
         onClose={onClose}
         onStart={() => setView("playing")}
+        onOpenSettings={onOpenSettings}
       />
     );
   }
@@ -250,7 +251,7 @@ function HomeScreen({
 }
 
 /* ── 屏2 · 准备工作（真实剧本数据，NPC/面具/绑定链路） ── */
-function SetupScreen({ scriptId, onBack, onClose, onStart }: { scriptId: string; onBack: () => void; onClose: () => void; onStart: () => void }) {
+function SetupScreen({ scriptId, onBack, onClose, onStart, onOpenSettings }: { scriptId: string; onBack: () => void; onClose: () => void; onStart: () => void; onOpenSettings: () => void }) {
   const [script, setScript] = useState<ScripthubScript | null>(() => getScript(scriptId));
   const [npcs, setNpcs] = useState<Character[]>([]);
   const [identities, setIdentities] = useState<UserIdentity[]>([]);
@@ -275,6 +276,10 @@ function SetupScreen({ scriptId, onBack, onClose, onStart }: { scriptId: string;
       ensureScriptNpcs(scriptId);
       setGeneratingNpcs(false);
       refresh();
+    }
+    // 无面具 → 自动前往系统设置创建（禁止内置面具，必须由用户自建）
+    if (loadUserIdentities().length === 0 && onOpenSettings) {
+      onOpenSettings();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scriptId]);
@@ -349,8 +354,13 @@ function SetupScreen({ scriptId, onBack, onClose, onStart }: { scriptId: string;
         <div style={S.card}>
           <div style={S.label}>你的面具（你是谁）</div>
           {identities.length === 0 ? (
-            <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(255,255,255,0.3)", lineHeight: 1.7 }}>
-              尚未创建身份。请先到 设置 → 身份 创建一个面具，回来再选。
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(255,255,255,0.3)", lineHeight: 1.7 }}>
+                首次进入需要先创建一个面具（你在剧本里的身份）。点击下方前往系统设置创建，完成后返回即可在此选择。
+              </div>
+              <button onClick={onOpenSettings} style={S_primaryBtn}>
+                前往设置创建面具
+              </button>
             </div>
           ) : (
             identities.map(id => {
@@ -361,7 +371,11 @@ function SetupScreen({ scriptId, onBack, onClose, onStart }: { scriptId: string;
                   onClick={() => pickMask(id.id)}
                   style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, background: selected ? "rgba(140,220,160,0.08)" : "rgba(0,0,0,0.3)", border: selected ? "1px solid rgba(140,220,160,0.5)" : "1px solid transparent", marginBottom: 6, cursor: "pointer" }}
                 >
-                  <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg,#7B6BB8,#5a4a90)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>👤</div>
+                  {id.avatarUrl ? (
+                    <img src={id.avatarUrl} alt={id.name} style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+                  ) : (
+                    <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg,#7B6BB8,#5a4a90)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>{id.name.slice(0, 1)}</div>
+                  )}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: "calc(13px*var(--app-text-scale,1))", fontWeight: 600 }}>{id.name}</div>
                     <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(255,255,255,0.4)" }}>{id.gender || ""}{id.age ? ` · ${id.age}岁` : ""}{id.occupation ? ` · ${id.occupation}` : ""}</div>

@@ -18,26 +18,7 @@ export type UserIdentity = {
     customSettings: string;
 };
 
-const DEFAULT_IDENTITIES: UserIdentity[] = [
-    {
-        id: "identity-1",
-        name: "李斯特",
-        bio: "一个普通的上班族，喜欢在周末去咖啡馆看书。",
-        gender: "男",
-        age: "26",
-        occupation: "程序员",
-        customSettings: "性格温和，说话带有一点理性逻辑。",
-    },
-    {
-        id: "identity-2",
-        name: "匿名用户",
-        bio: "神秘的过客。",
-        gender: "保密",
-        age: "未知",
-        occupation: "自由职业者",
-        customSettings: "说话简短，带有神秘色彩。",
-    }
-];
+// 注意：不预置任何内置/默认面具。所有 UserIdentity 必须由用户在设置里自行创建。
 
 function fileToDataUrl(file: File, maxSize = 400, quality = 0.8): Promise<string> {
     return new Promise((resolve, reject) => {
@@ -69,13 +50,11 @@ export function UserIdentitySettings() {
     const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
     useEffect(() => {
+        // 不预置内置面具：只加载用户自建身份；并清理历史上曾被自动写入的默认身份
         const saved = loadUserIdentities();
-        if (saved.length > 0) {
-            setIdentitiesRaw(saved);
-        } else {
-            setIdentitiesRaw(DEFAULT_IDENTITIES);
-            saveUserIdentities(DEFAULT_IDENTITIES);
-        }
+        const cleaned = saved.filter((i) => i.id !== "identity-1" && i.id !== "identity-2");
+        if (cleaned.length !== saved.length) saveUserIdentities(cleaned);
+        setIdentitiesRaw(cleaned);
     }, []);
 
     const setIdentities = useCallback((next: UserIdentity[]) => {
