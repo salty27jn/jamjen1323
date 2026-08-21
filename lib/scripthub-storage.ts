@@ -356,6 +356,38 @@ export function ensureScriptNpcs(scriptId: string): { created: number; chars: st
 }
 
 /**
+ * 补建剧本 NPC 的私聊会话：若 privateSessionIds 中某会话已失效/被删，
+ * 按原私聊通道自动重建，避免联动消息静默丢失。幂等。
+ */
+export function ensureScriptSessions(scriptId: string): void {
+  const script = getScript(scriptId);
+  if (!script || script.npcIds.length === 0) return;
+  const sessions = loadChatSessions();
+  const validPrivate: string[] = [];
+  let changed = false;
+  for (const npcId of script.npcIds) {
+    const sid = script.privateSessionIds.find((id) => {
+      const s = sessions.find((x) => x.id === id);
+      return s && s.contactId === npcId;
+    });
+    if (sid) {
+      validPrivate.push(sid);
+      continue;
+    }
+    // 会话失效 → 按原私聊通道补建
+    const contact = addChatContact(npcId);
+    if (contact) {
+      const session = createOrGetSession(npcId);
+      validPrivate.push(session.id);
+      changed = true;
+    }
+  }
+  if (changed) {
+    updateScript(scriptId, { privateSessionIds: validPrivate });
+  }
+}
+
+/**
  * 剧本即世界书：把剧本原文注入为一个恒激活（constant）世界书条目，
  * 并绑定到该剧本的所有 NPC 角色（私聊 chat + 群聊 group_chat），
  * 让聊天引擎在扮演这些 NPC 时始终读取剧本约束，避免"乱聊"。

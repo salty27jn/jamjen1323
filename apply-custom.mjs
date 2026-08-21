@@ -260,6 +260,127 @@ const ENHANCEMENTS = [
       writeFileSync(p, next, "utf8");
     },
   },
+
+// ── 剧本工坊（scripthub）挂载：不钉死作者核心，改由锚点重放，Sync fork 后一键恢复 ──
+// 仅在 desktop-config.ts / desktop-shell.tsx / middleware.ts 插入最小挂载点，
+// 锚点选稳定的相邻结构（mixology 入口、checkphone hydrate 等），作者改到别处也不会静默丢失。
+{
+  id: "desktop-config.ts: IconId 联合类型加 scripthub",
+  check: () => read("lib/desktop-config.ts").includes('| "scripthub"'),
+  apply: () => {
+    const p = join(ROOT, "lib", "desktop-config.ts");
+    const c = readFileSync(p, "utf8");
+    if (c.includes('| "scripthub"')) return;
+    const next = c.replace('  | "mixology"', '  | "mixology"\n  | "scripthub"');
+    if (next === c) throw new Error("desktop-config.ts IconId 锚点未找到");
+    writeFileSync(p, next, "utf8");
+  },
+},
+{
+  id: "desktop-config.ts: PAGE_3_DEFAULT 加 scripthub",
+  check: () => read("lib/desktop-config.ts").includes('"scripthub"]'),
+  apply: () => {
+    const p = join(ROOT, "lib", "desktop-config.ts");
+    const c = readFileSync(p, "utf8");
+    if (c.includes('"scripthub"]')) return;
+    const next = c.replace(
+      'export const PAGE_3_DEFAULT: IconId[] = ["worldbuilder", "qa", "resource_hub", "mixology"]',
+      'export const PAGE_3_DEFAULT: IconId[] = ["worldbuilder", "qa", "resource_hub", "mixology", "scripthub"]',
+    );
+    if (next === c) throw new Error("desktop-config.ts PAGE_3 锚点未找到");
+    writeFileSync(p, next, "utf8");
+  },
+},
+{
+  id: "desktop-config.ts: ICONS 加 scripthub",
+  check: () => read("lib/desktop-config.ts").includes('scripthub: { id: "scripthub"'),
+  apply: () => {
+    const p = join(ROOT, "lib", "desktop-config.ts");
+    const c = readFileSync(p, "utf8");
+    if (c.includes('scripthub: { id: "scripthub"')) return;
+    const next = c.replace(
+      '  mixology: { id: "mixology", label: "独家特调", tone: "var(--c-icon-violet)", placeholder: false },',
+      '  mixology: { id: "mixology", label: "独家特调", tone: "var(--c-icon-violet)", placeholder: false },\n  scripthub: { id: "scripthub", label: "剧本工坊", tone: "var(--c-icon-violet)", placeholder: false },',
+    );
+    if (next === c) throw new Error("desktop-config.ts ICONS 锚点未找到");
+    writeFileSync(p, next, "utf8");
+  },
+},
+{
+  id: "desktop-shell.tsx: import ScriptHubApp",
+  check: () => read("components/desktop-shell.tsx").includes('from "@/components/scripthub/scripthub-app"'),
+  apply: () => {
+    const p = join(ROOT, "components", "desktop-shell.tsx");
+    const c = readFileSync(p, "utf8");
+    if (c.includes('from "@/components/scripthub/scripthub-app"')) return;
+    const next = c.replace(
+      'import { MixologyApp } from "@/components/mixology/mixology-app";',
+      'import { MixologyApp } from "@/components/mixology/mixology-app";\nimport { ScriptHubApp } from "@/components/scripthub/scripthub-app";',
+    );
+    if (next === c) throw new Error("desktop-shell.tsx import 锚点未找到");
+    writeFileSync(p, next, "utf8");
+  },
+},
+{
+  id: "desktop-shell.tsx: import hydrateScripthubStorage",
+  check: () => read("components/desktop-shell.tsx").includes('from "@/lib/scripthub-storage"'),
+  apply: () => {
+    const p = join(ROOT, "components", "desktop-shell.tsx");
+    const c = readFileSync(p, "utf8");
+    if (c.includes('from "@/lib/scripthub-storage"')) return;
+    const next = c.replace(
+      'import { hydrateCheckPhoneStorage } from "@/lib/checkphone-storage";',
+      'import { hydrateCheckPhoneStorage } from "@/lib/checkphone-storage";\nimport { hydrateScripthubStorage } from "@/lib/scripthub-storage";',
+    );
+    if (next === c) throw new Error("desktop-shell.tsx hydrate import 锚点未找到");
+    writeFileSync(p, next, "utf8");
+  },
+},
+{
+  id: "desktop-shell.tsx: hydrateScripthubStorage 调用",
+  check: () => read("components/desktop-shell.tsx").includes("hydrateScripthubStorage()"),
+  apply: () => {
+    const p = join(ROOT, "components", "desktop-shell.tsx");
+    const c = readFileSync(p, "utf8");
+    if (c.includes("hydrateScripthubStorage()")) return;
+    const next = c.replace(
+      "          hydrateCheckPhoneStorage(),",
+      "          hydrateCheckPhoneStorage(),\n          hydrateScripthubStorage(),",
+    );
+    if (next === c) throw new Error("desktop-shell.tsx hydrate 调用锚点未找到");
+    writeFileSync(p, next, "utf8");
+  },
+},
+{
+  id: "desktop-shell.tsx: 渲染分支 scripthub",
+  check: () => read("components/desktop-shell.tsx").includes('activeApp === "scripthub"'),
+  apply: () => {
+    const p = join(ROOT, "components", "desktop-shell.tsx");
+    const c = readFileSync(p, "utf8");
+    if (c.includes('activeApp === "scripthub"')) return;
+    const next = c.replace(
+      '    if (activeApp === "appmarket") {',
+      '    if (activeApp === "scripthub") {\r\n      return <ScriptHubApp onClose={() => setActiveApp(null)} onOpenSettings={() => setActiveApp("settings")} />;\r\n    }\r\n\r\n    if (activeApp === "appmarket") {',
+    );
+    if (next === c) throw new Error("desktop-shell.tsx 渲染分支锚点未找到");
+    writeFileSync(p, next, "utf8");
+  },
+},
+{
+  id: "middleware.ts: 预览路由白名单加 scripthub-preview",
+  check: () => read("middleware.ts").includes('"/scripthub-preview"'),
+  apply: () => {
+    const p = join(ROOT, "middleware.ts");
+    const c = readFileSync(p, "utf8");
+    if (c.includes('"/scripthub-preview"')) return;
+    const next = c.replace(
+      '  "/verify",',
+      '  "/verify",\r\n  "/scripthub-preview",',
+    );
+    if (next === c) throw new Error("middleware.ts 白名单锚点未找到");
+    writeFileSync(p, next, "utf8");
+  },
+},
 ];
 
 let changed = false;

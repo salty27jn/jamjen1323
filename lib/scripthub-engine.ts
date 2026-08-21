@@ -43,6 +43,62 @@ function extractJSON(text: string): string {
   return candidate.slice(start);
 }
 
+// ── 骰子 · 选项清洗 · NPC 精准匹配（剧本工坊独立增强，不碰原 map-rpg-engine） ──
+/** 真掷骰子：返回 1~sides 整数（代码层真实随机，非 AI 嘴上说）。 */
+export function rollDice(sides: number): number {
+  return Math.floor(Math.random() * sides) + 1;
+}
+
+/** 真掷 D20（1~20）。 */
+export function rollD20(): number {
+  return rollDice(20);
+}
+
+/** 代码层清洗 AI 输出的 4 个选项：剔除"自定义行动"类占位、去重、保底恰好 4 个。 */
+function sanitizeChoices(raw: unknown): string[] {
+  const placeholders = /自定义行动|自由发挥|自行输入|自己输入|其他方式|其它选项|玩家自定义|让玩家自行决定/;
+  let list = (Array.isArray(raw) ? raw : [])
+    .filter((c): c is string => typeof c === "string" && c.trim().length > 0)
+    .filter((c) => !placeholders.test(c))
+    .map((c) => c.trim());
+  const seen = new Set<string>();
+  list = list.filter((c) => (seen.has(c) ? false : (seen.add(c), true)));
+  list = list.slice(0, 4);
+  const FALLBACK = [
+    "静观其变，观察局势变化",
+    "环顾四周，寻找线索与细节",
+    "与身边的人攀谈，试探虚实",
+    "回顾目前的线索与处境，斟酌下一步",
+    "按兵不动，稳妥应对眼前局面",
+    "主动推进，向对方试探底线",
+  ];
+  let fi = 0;
+  while (list.length < 4 && fi < FALLBACK.length) {
+    const f = FALLBACK[fi++];
+    if (!seen.has(f)) {
+      list.push(f);
+      seen.add(f);
+    }
+  }
+  return list;
+}
+
+/** NPC 名字精准匹配：精确相等优先，去空格/括号归一化次之；避免"医生"误中"法医医生"这类双向子串误判。 */
+function findNpcByName(chars: { id: string; name: string }[], name: string): { id: string; name: string } | undefined {
+  if (!name) return undefined;
+  const exact = chars.find((c) => c.name === name);
+  if (exact) return exact;
+  const norm = (s: string) => s.replace(/[【】()（）\s]/g, "");
+  const n = norm(name);
+  const ne = chars.find((c) => norm(c.name) === n);
+  if (ne) return ne;
+  if (n.length >= 3) {
+    const part = chars.find((c) => c.name.includes(name) || norm(c.name).includes(n));
+    if (part) return part;
+  }
+  return undefined;
+}
+
 // ── 每回合行动选项规则（已确认，写入 DM 提示词强制生效） ──
 const CHOICE_RULES = [
   "每回合的行动选项必须严格遵守以下规则：",
@@ -300,7 +356,7 @@ export async function runScriptTurn(
   const narration = typeof p.narration === "string" ? p.narration : "";
   if (!narration) throw new Error("DM 返回内容为空");
 
-  const choices: string[] = Array.isArray(p.choices) ? p.choices.filter((c: unknown) => typeof c === "string").slice(0, 4) : [];
+  const choices: string[] = sanitizeChoices(p.choices);
   const stateChanges: Record<string, number> = {};
   if (p.state_changes && typeof p.state_changes === "object") {
     for (const [k, v] of Object.entries(p.state_changes)) {
@@ -357,7 +413,7 @@ export function deliverLinkedMessages(script: ScripthubScript, messages: { sende
   let delivered = 0;
 
   for (const lm of messages) {
-    const npc = chars.find(c => c.name === lm.senderName || c.name.includes(lm.senderName) || lm.senderName.includes(c.name));
+    const npc = findNpcByName(chars, lm.senderName);
     if (!npc) continue;
     // 优先发到该 NPC 的私聊会话
     const sessionId = script.privateSessionIds.find(sid => {
@@ -392,7 +448,7 @@ export function deliverLinkedPosts(script: ScripthubScript, posts: { authorName:
   const contacts = loadChatSessions();
   let delivered = 0;
   for (const p of posts) {
-    const npc = chars.find(c => c.name === p.authorName || c.name.includes(p.authorName) || p.authorName.includes(c.name));
+    const npc = findNpcByName(chars, p.authorName);
     if (!npc) continue;
     const visibility = contacts.map(c => c.contactId).filter(Boolean);
     const post = addMomentPost({
@@ -423,7 +479,7 @@ export function deliverLinkedCalendar(script: ScripthubScript, events: ScriptTur
       ownerType = "user";
       ownerId = "user";
     } else {
-      const npc = chars.find(c => c.name === ev.ownerName || c.name.includes(ev.ownerName) || ev.ownerName.includes(c.name));
+      const npc = findNpcByName(chars, ev.ownerName);
       if (!npc) continue;
       ownerId = npc.id;
     }
@@ -457,7 +513,7 @@ export function deliverLinkedDiary(script: ScripthubScript, entries: ScriptTurnR
   const chars = loadCharacters();
   let delivered = 0;
   for (const e of entries) {
-    const npc = chars.find(c => c.name === e.authorName || c.name.includes(e.authorName) || e.authorName.includes(c.name));
+    const npc = findNpcByName(chars, e.authorName);
     if (!npc) continue;
     createDiaryEntry({
       characterId: npc.id,

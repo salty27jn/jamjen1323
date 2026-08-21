@@ -17,6 +17,7 @@ import {
   hydrateScripthubStorage,
   nextAvailableEmoji,
   ensureScriptNpcs,
+  ensureScriptSessions,
   cleanupScriptWorldBooks,
   type ScripthubScript,
   type ScriptTurnMessage,
@@ -26,7 +27,7 @@ import { loadUserIdentities } from "@/lib/settings-storage";
 import type { UserIdentity } from "@/components/settings/user-identity";
 import { loadCharacters } from "@/lib/character-storage";
 import type { Character } from "@/lib/character-types";
-import { runScriptTurn, applyStateChanges, formatScriptStats, deliverLinkedMessages, deliverLinkedPosts, deliverLinkedCalendar, deliverLinkedDiary } from "@/lib/scripthub-engine";
+import { runScriptTurn, applyStateChanges, formatScriptStats, deliverLinkedMessages, deliverLinkedPosts, deliverLinkedCalendar, deliverLinkedDiary, rollD20 } from "@/lib/scripthub-engine";
 import { ChatPageHeader } from "@/components/chat/chat-page-header";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import type { ChatMessage } from "@/lib/chat-storage";
@@ -277,10 +278,7 @@ function SetupScreen({ scriptId, onBack, onClose, onStart, onOpenSettings }: { s
       setGeneratingNpcs(false);
       refresh();
     }
-    // 无面具 → 自动前往系统设置创建（禁止内置面具，必须由用户自建）
-    if (loadUserIdentities().length === 0 && onOpenSettings) {
-      onOpenSettings();
-    }
+    // 无面具不自动跳走：准备页已有内联引导（用户主动点「前往设置创建面具」），不强制打断
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scriptId]);
 
@@ -451,6 +449,7 @@ function PlayingScreen({ scriptId, onBack, onClose }: { scriptId: string; onBack
   const [generating, setGenerating] = useState(false);
   const [statsOpen, setStatsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentDice, setCurrentDice] = useState<{ sides: number; value: number; label: string } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const genTokenRef = useRef<number>(0);
 
@@ -477,6 +476,18 @@ function PlayingScreen({ scriptId, onBack, onClose }: { scriptId: string; onBack
     const trimmed = text.trim();
     if (!trimmed || generating) return;
     setError(null);
+
+    // 剧本选项含 D20 判定标注 → 代码层真掷骰，把真实点数交给 DM 据实结算并展示
+    let dice: { sides: number; value: number; label: string } | null = null;
+    const diceMatch = trimmed.match(/[（(]?\s*D\s*(\d+)\s*判定\s*[）)]?/i) || trimmed.match(/D(\d+)\b/i);
+    if (diceMatch) {
+      const sides = parseInt(diceMatch[1] || "20", 10) || 20;
+      const value = rollD20();
+      dice = { sides, value, label: `D${sides}` };
+      setCurrentDice(dice);
+    } else {
+      setCurrentDice(null);
+    }
     const token = ++genTokenRef.current;
     setGenerating(true);
     setInputText("");
@@ -490,7 +501,10 @@ function PlayingScreen({ scriptId, onBack, onClose }: { scriptId: string; onBack
     updateScript(scriptId, { messages: nextMessages });
 
     try {
-      const result = await runScriptTurn(getScript(scriptId)!, trimmed);
+      const userTextForEngine = dice
+        ? `${trimmed}\n（系统真实掷骰：${dice.label} = ${dice.value}，请严格依据此骰点判定本次成败，并在正文中如实播报「骰点 ${dice.value} / 难度 DC」）`
+        : trimmed;
+      const result = await runScriptTurn(getScript(scriptId)!, userTextForEngine);
       if (token !== genTokenRef.current) return; // 已被新回合取代
       const { stats, stateNotes } = applyStateChanges(getScript(scriptId)!, result.stateChanges, result.stateNotes);
       const assistantMsg: ScriptTurnMessage = {
@@ -513,6 +527,7 @@ function PlayingScreen({ scriptId, onBack, onClose }: { scriptId: string; onBack
       setScript({ ...getScript(scriptId)! });
       // NPC 回合内发的私聊/群聊消息 → 真实推送到聊天会话
       if (result.linkedMessages.length > 0) {
+        ensureScriptSessions(scriptId);
         deliverLinkedMessages(getScript(scriptId)!, result.linkedMessages);
       }
       // 联动应用：朋友圈 / 日历 / 手记 真实写入
@@ -583,6 +598,13 @@ function PlayingScreen({ scriptId, onBack, onClose }: { scriptId: string; onBack
           </div>
         )}
       </div>
+
+      {/* 真实骰点播报（D20 等判定由代码层真掷，非 AI 嘴上说） */}
+      {currentDice && !generating && (
+        <div style={{ padding: "4px 14px 2px", fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(255,210,140,0.92)", letterSpacing: "0.05em" }}>
+          🎲 系统真实掷骰：{currentDice.label} = <b>{currentDice.value}</b>
+        </div>
+      )}
 
       {/* 行动选项（上一回合生成） */}
       {currentChoices.length > 0 && !generating && (
