@@ -540,6 +540,13 @@ export type MixTurn = {
     /** 该轮小剧场壳内原文（尾调写了契约且 AI 输出时才有） */
     encoreRaw?: string;
     /**
+     * 供稿材料戳（可选）：平时不写——历史轮跟着当前件的渲染代码走（整体换皮）。
+     * 只在局中换小票/尾调那一刻，由旧件给已有的轮盖上自己的 id；
+     * 渲染时有戳的轮用戳指向的皮（见 MixSession.retiredRender），新轮用新件。
+     */
+    ticketId?: string;
+    encoreId?: string;
+    /**
      * 这一轮结束时记住的值。回溯 / 重说 / 编辑某轮之后，
      * 直接取剩下最后一轮的这份快照还原，数字不会停留在被丢掉的未来。
      */
@@ -573,6 +580,12 @@ export type MixSession = {
      * 不写回材料：材料是作者的作品，玩家挪一下自己的屏幕不该改到别人的作品。
      */
     panelBox?: Record<string, MixPanelLayout>;
+    /**
+     * 退役的渲染皮（materialId → 渲染 HTML）：局中换小票/尾调那一刻，旧件的
+     * 渲染代码快照进来，被盖了戳的历史轮（MixTurn.ticketId/encoreId）按这份
+     * 皮回放——旧件之后从酒柜删掉也不受影响。每件只存一份，不逐轮存。
+     */
+    retiredRender?: Record<string, string>;
     createdAt: number;
     updatedAt: number;
 };

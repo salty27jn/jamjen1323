@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { ChevronLeft, Copy, History, MoreHorizontal, Pencil, Plus, RotateCcw, Send, WandSparkles, X } from "lucide-react";
 import { continueMix, editMixTurn, generateMixReply, mixTurnRawText, refreshMixOpening, regenerateMixTail, rerollMixReply, runMixSessionEnd, truncateMixAfterTurn } from "@/lib/mixology/engine";
-import { getMixMaterial, getMixSession, listMixPickables, resolveMixRecipeMaterials, saveMixSession } from "@/lib/mixology/storage";
+import { getMixMaterial, getMixSession, listMixPickables, MIX_CABINET_UPDATED_EVENT, resolveMixRecipeMaterials, saveMixSession } from "@/lib/mixology/storage";
 import { applyMixMacros, MIX_DEFAULT_USER_NAME } from "@/lib/mixology/assembler";
 import { buildMixConditionContext, pickActiveMixMaterials } from "@/lib/mixology/state";
 import { scopeMixCss } from "@/lib/mixology/css-scope";
@@ -129,6 +129,17 @@ export function MixologyGame({ sessionId, onBack, onToast }: GameProps) {
     const [recipeOpen, setRecipeOpen] = useState(false);
     const [slotPick, setSlotPick] = useState<MixMaterialKind | null>(null);
     const [wheelIndex, setWheelIndex] = useState(0);
+    /**
+     * 酒柜外部变更计数：小卷（吉祥物工具）改完材料会广播这个事件，对局里的
+     * 画布/小票/装饰都是渲染时从酒柜现取的，靠它促使下面两个 useMemo 重取——
+     * 否则开着的对局要退出重进才能看到小卷刚写的开场画布。
+     */
+    const [cabinetTick, setCabinetTick] = useState(0);
+    useEffect(() => {
+        const bump = () => setCabinetTick((t) => t + 1);
+        window.addEventListener(MIX_CABINET_UPDATED_EVENT, bump);
+        return () => window.removeEventListener(MIX_CABINET_UPDATED_EVENT, bump);
+    }, []);
     const scrollRef = useRef<HTMLDivElement | null>(null);
     const abortRef = useRef<AbortController | null>(null);
     const wheelRef = useRef<HTMLDivElement | null>(null);
@@ -192,7 +203,7 @@ export function MixologyGame({ sessionId, onBack, onToast }: GameProps) {
                 )
                 : "",
         };
-    }, [session]);
+    }, [session, cabinetTick]);
 
     /**
      * 条件命中、且写了界面的机括：这些是要常驻在对局画面上的界面。
@@ -213,7 +224,7 @@ export function MixologyGame({ sessionId, onBack, onToast }: GameProps) {
             })
             .filter((item): item is { material: MixMechanismMaterial; layout: MixPanelLayout } => item !== null)
             .slice(0, MIX_PANEL_MAX);
-    }, [session]);
+    }, [session, cabinetTick]);
 
     /**
      * 机括界面的逃生口。摆放完全交给创作者之后，理论上存在"一块面板糊满整个屏幕、
@@ -478,12 +489,45 @@ export function MixologyGame({ sessionId, onBack, onToast }: GameProps) {
      * 换料：改本局方案快照的槽位，下一轮装配时生效。
      * 生效条件仍然只在吧台改方案时设置，这里只管加进去和拿出来。
      */
+    /**
+     * 换装前给历史轮盖戳。小票/小剧场是「每轮存原文 + 渲染代码现取」，局中换件后
+     * 新代码解析不了旧格式的原文——所以在换装这一刻，把还没盖过戳的旧轮标上
+     * 现役件的 id，并把它的渲染皮快照进对局档案（retiredRender）。此后这些轮
+     * 永远按当时的皮回放，旧件从酒柜删掉也不受影响；新轮不盖戳、跟当前件走。
+     * 原地编辑材料不经过这里，「同一件改版全局换皮」的特性保留。
+     */
+    const stampRetiringSkin = (base: MixSession, kind: "ticket" | "encore"): MixSession => {
+        const { entries } = resolveMixRecipeMaterials(base.recipe);
+        const active = pickActiveMixMaterials(entries, buildMixConditionContext(base));
+        const mat = active[kind]?.[0];
+        if (!mat) return base;
+        const html = kind === "ticket"
+            ? (mat.kind === "ticket" ? mat.renderHtml?.trim() ?? "" : "")
+            : (mat.kind === "encore" && mat.contract?.trim() ? mixEncoreRenderHtml(mat).trim() : "");
+        if (!html) return base;
+        let touched = false;
+        const turns = base.turns.map((t) => {
+            if (t.role !== "assistant") return t;
+            if (kind === "ticket") {
+                if (!t.ticketRaw || t.ticketId) return t;
+                touched = true;
+                return { ...t, ticketId: mat.id };
+            }
+            if (!t.encoreRaw || t.encoreId) return t;
+            touched = true;
+            return { ...t, encoreId: mat.id };
+        });
+        if (!touched) return base;
+        return { ...base, turns, retiredRender: { ...base.retiredRender, [mat.id]: html } };
+    };
+
     /** 写回槽位；next 为空就把这一格清掉 */
     const writeSlot = (kind: MixMaterialKind, next: MixSlotEntry[]) => {
-        const slots = { ...session.recipe.slots };
+        const base = kind === "ticket" || kind === "encore" ? stampRetiringSkin(session, kind) : session;
+        const slots = { ...base.recipe.slots };
         if (next.length) slots[kind] = next;
         else delete slots[kind];
-        const updated: MixSession = { ...session, recipe: { ...session.recipe, slots }, updatedAt: Date.now() };
+        const updated: MixSession = { ...base, recipe: { ...base.recipe, slots }, updatedAt: Date.now() };
         saveMixSession(updated);
         setSession(getMixSession(sessionId));
     };
@@ -510,6 +554,30 @@ export function MixologyGame({ sessionId, onBack, onToast }: GameProps) {
         writeSlot(kind, []);
         setSlotPick(null);
         onToast("已清空这一格，下一轮生效。");
+    };
+
+    /**
+     * 按戳取皮：没盖戳的轮用当前件（整体换皮）；盖了戳的轮优先用对局档案里的
+     * 快照，档案缺失（老数据）再找酒柜里同 id 的材料，都没有才退回当前件。
+     */
+    const turnTicketHtml = (turn: MixTurn): string | undefined => {
+        if (!turn.ticketId) return assets.ticketHtml;
+        const archived = session.retiredRender?.[turn.ticketId];
+        if (archived) return archived;
+        const mat = getMixMaterial(turn.ticketId);
+        if (mat?.kind === "ticket" && mat.renderHtml?.trim()) return mat.renderHtml;
+        return assets.ticketHtml;
+    };
+    const turnEncoreHtml = (turn: MixTurn): string | undefined => {
+        if (!turn.encoreId) return assets.encoreTurnHtml;
+        const archived = session.retiredRender?.[turn.encoreId];
+        if (archived) return archived;
+        const mat = getMixMaterial(turn.encoreId);
+        if (mat?.kind === "encore") {
+            const html = mixEncoreRenderHtml(mat).trim();
+            if (html) return html;
+        }
+        return assets.encoreTurnHtml;
     };
 
     const lastTurn = session.turns[session.turns.length - 1];
@@ -554,7 +622,7 @@ export function MixologyGame({ sessionId, onBack, onToast }: GameProps) {
                         </div>
                     ) : (
                         <div className="mix-assistant-turn" key={turn.id}>
-                            <AssistantTurn turn={turn} ticketHtml={assets.ticketHtml} encoreHtml={assets.encoreTurnHtml} filterRules={assets.filterRules} state={turn.state} />
+                            <AssistantTurn turn={turn} ticketHtml={turnTicketHtml(turn)} encoreHtml={turnEncoreHtml(turn)} filterRules={assets.filterRules} state={turn.state} />
                             {actions}
                         </div>
                     );

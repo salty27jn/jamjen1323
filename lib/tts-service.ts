@@ -363,10 +363,9 @@ export function playAudioBlob(blob: Blob): { promise: Promise<void>; abort: () =
     let source: AudioBufferSourceNode | null = null;
 
     let gain: GainNode | null = null;
+    let fallbackAbort: (() => void) | null = null;
 
-    const finalize = () => {
-        if (settled) return;
-        settled = true;
+    const cleanupWebAudio = () => {
         if (source) {
             source.onended = null;
             try { source.stop(); } catch {}
@@ -378,6 +377,13 @@ export function playAudioBlob(blob: Blob): { promise: Promise<void>; abort: () =
         gain = null;
         // Suspend so iOS hands the audio session back to the microphone.
         try { ctx.suspend(); } catch {}
+    };
+
+    const finalize = () => {
+        if (settled) return;
+        settled = true;
+        cleanupWebAudio();
+        if (fallbackAbort) { fallbackAbort(); fallbackAbort = null; }
         resolveFn();
     };
 
@@ -385,7 +391,15 @@ export function playAudioBlob(blob: Blob): { promise: Promise<void>; abort: () =
         resolveFn = resolve;
         (async () => {
             try {
-                if (ctx.state === "suspended") await ctx.resume();
+                if (ctx.state === "suspended") {
+                    // 程序化 resume 在部分安卓浏览器上会被拒绝，甚至让 promise 永远
+                    // 悬着（要等下一次用户手势）。限时等待后检查状态，走不通就回落。
+                    await Promise.race([
+                        ctx.resume().catch(() => {}),
+                        new Promise(r => setTimeout(r, 800)),
+                    ]);
+                }
+                if (ctx.state !== "running") throw new Error("audio_context_not_running");
                 const audioBuffer = await decodeAudio(ctx, await blob.arrayBuffer());
                 if (settled) return;
                 source = ctx.createBufferSource();
@@ -399,7 +413,19 @@ export function playAudioBlob(blob: Blob): { promise: Promise<void>; abort: () =
                 source.onended = finalize;
                 source.start();
             } catch {
-                finalize();
+                // Web Audio 走不通（resume 被拒/解码失败等）时回落媒体元素播放：
+                // 宁可这一段绕过「iOS 归还麦克风」的优化，也不要静默无声——
+                // 此前这里直接 finalize，正是「语音条有声、通话没声」的来源之一。
+                if (settled) return;
+                cleanupWebAudio();
+                const fallback = playAudioBlobElement(blob);
+                fallbackAbort = fallback.abort;
+                void fallback.promise.then(() => {
+                    if (settled) return;
+                    settled = true;
+                    fallbackAbort = null;
+                    resolveFn();
+                });
             }
         })();
     });
