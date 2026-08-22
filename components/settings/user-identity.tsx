@@ -16,6 +16,7 @@ export type UserIdentity = {
     age: string;
     occupation: string;
     customSettings: string;
+    sourceScriptName?: string; // 来源剧本（剧本工坊按角色卡自动生成时记录，仅作标识展示）
 };
 
 // 注意：不预置任何内置/默认面具。所有 UserIdentity 必须由用户在设置里自行创建。
@@ -144,6 +145,11 @@ export function UserIdentitySettings() {
                         >
                             <div className="min-w-0 flex flex-col gap-1">
                                 <span className="truncate text-[calc(14.4px*var(--app-text-scale,1))] font-bold leading-tight text-[var(--c-text-title)]">{identity.name || "未命名身份"}</span>
+                                {identity.sourceScriptName && (
+                                    <span className="inline-block max-w-full truncate self-start rounded-[4px] border border-[var(--c-card-border)] bg-[var(--c-input)] px-[5px] py-[1px] text-[calc(10px*var(--app-text-scale,1))] leading-[14px] text-[var(--c-text)]">
+                                        剧本·{identity.sourceScriptName}
+                                    </span>
+                                )}
                                 <span className="menu-desc truncate">{identity.occupation || identity.bio || identity.gender || "未填写身份信息"}</span>
                             </div>
                             <div className="flex items-end justify-between gap-2">

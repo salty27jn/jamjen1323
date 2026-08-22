@@ -24,7 +24,7 @@ import {
   type PlayerCardField,
 } from "@/lib/scripthub-storage";
 import { decodeTxtArrayBuffer } from "@/lib/reading-parser";
-import { loadUserIdentities } from "@/lib/settings-storage";
+import { loadUserIdentities, saveUserIdentities } from "@/lib/settings-storage";
 import type { UserIdentity } from "@/components/settings/user-identity";
 import { loadCharacters } from "@/lib/character-storage";
 import type { Character } from "@/lib/character-types";
@@ -356,7 +356,11 @@ function SetupScreen({ scriptId, onBack, onClose, onStart, onOpenSettings }: { s
       setCardError("角色卡草稿为空：请先生成草稿");
       return;
     }
-    updateScript(scriptId, { playerCard: { status: "confirmed", fields: draftFields.map(f => ({ label: f.label, value: f.value.trim(), hint: f.hint })) } });
+    const confirmedFields = draftFields.map(f => ({ label: f.label, value: f.value.trim(), hint: f.hint }));
+    // 确认即组装：按角色卡新建一个系统面具（每次新建、不覆盖），并自动绑定本剧本
+    const identity = buildIdentityFromCard(confirmedFields, script.name);
+    saveUserIdentities([identity, ...loadUserIdentities()]);
+    updateScript(scriptId, { playerCard: { status: "confirmed", fields: confirmedFields }, userIdentityId: identity.id });
     setCardError(null);
     refresh();
   };
@@ -446,40 +450,67 @@ function SetupScreen({ scriptId, onBack, onClose, onStart, onOpenSettings }: { s
           )}
         </div>
 
-        {/* ── 面具 ── */}
+        {/* ── 面具（与 NPC 聊天时的"你"；由角色卡自动组装，也可手动换用） ── */}
         <div style={S.card}>
-          <div style={S.label}>你的面具（你是谁）</div>
+          <div style={S.label}>你的面具（和 NPC 聊天时的&quot;你&quot;）</div>
+          {!cardReady ? (
+            <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "var(--c-text)", lineHeight: 1.7, marginBottom: 10 }}>
+              确认「你的角色卡」后，系统会自动把它组装成一个新面具并绑定本剧本，无需再去设置页手动创建。
+            </div>
+          ) : (
+            (() => {
+              const bound = identities.find(i => i.id === script.userIdentityId);
+              return (
+                <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(22,122,69,0.9)", lineHeight: 1.7, marginBottom: 8 }}>
+                  ✓ 已按角色卡自动生成新面具{bound ? `「${bound.name}」` : ""}并绑定本剧本（每次确认都会新建，不会覆盖旧面具）
+                </div>
+              );
+            })()
+          )}
+
           {identities.length === 0 ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "var(--c-icon)", lineHeight: 1.7 }}>
-                首次进入需要先创建一个面具（你在剧本里的身份）。点击下方前往系统设置创建，完成后返回即可在此选择。
+                系统里还没有任何面具。确认角色卡后会自动创建第一个；也可以去设置里手动建。
               </div>
               <button onClick={onOpenSettings} style={S_primaryBtn}>
                 前往设置创建面具
               </button>
             </div>
           ) : (
-            identities.map(id => {
-              const selected = script.userIdentityId === id.id;
-              return (
-                <div
-                  key={id.id}
-                  onClick={() => pickMask(id.id)}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, background: selected ? "rgba(22,122,69,0.08)" : "var(--c-input)", border: selected ? "1px solid rgba(22,122,69,0.45)" : "1px solid transparent", marginBottom: 6, cursor: "pointer" }}
-                >
-                  {id.avatarUrl ? (
-                    <img src={id.avatarUrl} alt={id.name} style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
-                  ) : (
-                    <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg,#7B6BB8,#5a4a90)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0, color: "#fff" }}>{id.name.slice(0, 1)}</div>
-                  )}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: "calc(13px*var(--app-text-scale,1))", fontWeight: 600 }}>{id.name}</div>
-                    <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "var(--c-text)" }}>{id.gender || ""}{id.age ? ` · ${id.age}岁` : ""}{id.occupation ? ` · ${id.occupation}` : ""}</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "var(--c-icon)" }}>或手动换用其他面具（点选立即生效）：</div>
+              {identities.map(id => {
+                const selected = script.userIdentityId === id.id;
+                return (
+                  <div
+                    key={id.id}
+                    onClick={() => pickMask(id.id)}
+                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, background: selected ? "rgba(22,122,69,0.08)" : "var(--c-input)", border: selected ? "1px solid rgba(22,122,69,0.45)" : "1px solid transparent", cursor: "pointer" }}
+                  >
+                    {id.avatarUrl ? (
+                      <img src={id.avatarUrl} alt={id.name} style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+                    ) : (
+                      <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg,#7B6BB8,#5a4a90)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0, color: "#fff" }}>{id.name.slice(0, 1)}</div>
+                    )}
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
+                        <span style={{ fontSize: "calc(13px*var(--app-text-scale,1))", fontWeight: 600, flexShrink: 0 }}>{id.name}</span>
+                        {id.sourceScriptName && (
+                          <span style={{
+                            display: "inline-block", maxWidth: "100%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                            padding: "1px 6px", borderRadius: 4, border: "1px solid var(--c-card-border)", background: "var(--c-page-body-bg)",
+                            fontSize: "calc(10px*var(--app-text-scale,1))", lineHeight: "14px", color: "var(--c-text)", flexShrink: 1,
+                          }}>剧本·{id.sourceScriptName}</span>
+                        )}
+                      </div>
+                      <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "var(--c-text)" }}>{id.gender || ""}{id.age ? ` · ${id.age}岁` : ""}{id.occupation ? ` · ${id.occupation}` : ""}</div>
+                    </div>
+                    {selected && <Check size={16} color="rgba(22,122,69,0.9)" />}
                   </div>
-                  {selected && <Check size={16} color="rgba(22,122,69,0.9)" />}
-                </div>
-              );
-            })
+                );
+              })}
+            </div>
           )}
         </div>
 
@@ -589,6 +620,34 @@ const S_cardInput: React.CSSProperties = {
   width: "100%", boxSizing: "border-box", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--c-card-border)",
   background: "var(--c-input)", color: "var(--c-text-title)", fontSize: "calc(12.5px*var(--app-text-scale,1))", outline: "none", fontFamily: "inherit",
 };
+
+/** 角色卡字段 → 组装成系统面具（UserIdentity）。每次确认都新建，不覆盖已有面具。 */
+function buildIdentityFromCard(fields: PlayerCardField[], scriptName: string): UserIdentity {
+  const valOf = (re: RegExp) => fields.find(f => re.test(f.label))?.value.trim() || "";
+  const name = valOf(/^姓名/) || "玩家";
+  const genderRaw = valOf(/^性别/);
+  const genderMatched = ["男", "女", "其他"].includes(genderRaw) ? genderRaw : "";
+  const age = valOf(/^年龄/);
+  const occupation = valOf(/职业|年级|专业|身份/);
+  // 已被结构化字段吸收的，不再重复进简介
+  const consumed: RegExp[] = [/^姓名/];
+  if (genderMatched) consumed.push(/^性别/);
+  if (age) consumed.push(/^年龄/);
+  if (occupation) consumed.push(/职业|年级|专业|身份/);
+  const bioLines = fields
+    .filter(f => f.value.trim() && !consumed.some(re => re.test(f.label)))
+    .map(f => `${f.label}：${f.value.trim()}`);
+  return {
+    id: `identity-${Date.now()}`,
+    name,
+    bio: bioLines.join("\n"),
+    gender: genderMatched || "保密",
+    age,
+    occupation,
+    customSettings: "",
+    sourceScriptName: scriptName,
+  };
+}
 
 function BindRow({ ok, label, value }: { ok: boolean; label: string; value: string }) {
   return (
