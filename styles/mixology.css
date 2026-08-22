@@ -312,6 +312,29 @@
     color: var(--mix-gold);
 }
 
+.mix-feed-seg {
+    display: flex;
+    gap: 6px;
+}
+
+.mix-feed-seg button {
+    border: 1px solid var(--mix-line);
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 11px;
+    line-height: 1;
+    white-space: nowrap;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.04);
+    color: var(--mix-faint);
+}
+
+.mix-feed-seg button[data-on="true"] {
+    border-color: rgba(141, 123, 245, 0.55);
+    background: rgba(141, 123, 245, 0.2);
+    color: var(--mix-violet);
+}
+
 .mix-filter-rule-bad {
     font-size: 10.5px;
     color: #e2a3a3;
@@ -1143,13 +1166,29 @@
     inset: 0;
     background-size: cover;
     background-position: center 20%;
+    /* 观感微调（对局右上角亮度按钮）：模糊只作用于封面层；
+       scale 略放大盖掉 blur 的透明毛边 */
+    filter: blur(var(--mix-bg-blur, 0px));
+    transform: scale(1.03);
 }
 
-/* 三段蒙版：顶部压暗保标题、中段轻纱、底部沉底保正文 */
+/* 负亮度的追加压暗层：蒙版全开之外再匀压一层黑（--mix-bg-dim 0~0.4），
+   给"默认还不够暗"的亮封面用；在 ::after 之下叠加，互不干扰 */
+.mix-game-bg::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: rgb(11, 11, 16);
+    opacity: var(--mix-bg-dim, 0);
+}
+
+/* 三段蒙版：顶部压暗保标题、中段轻纱、底部沉底保正文；
+   --mix-bg-mask 是提亮系数（1=原样，0=无蒙版），来自观感微调 */
 .mix-game-bg::after {
     content: "";
     position: absolute;
     inset: 0;
+    opacity: var(--mix-bg-mask, 1);
     background: linear-gradient(
         180deg,
         rgba(11, 11, 16, 0.82) 0%,
@@ -1157,6 +1196,57 @@
         rgba(11, 11, 16, 0.72) 55%,
         rgba(11, 11, 16, 0.94) 100%
     );
+}
+
+/* ── 背景观感微调弹层（亮度按钮） ── */
+.mix-bgtune-mask {
+    position: absolute;
+    inset: 0;
+    z-index: 30;
+}
+
+.mix-bgtune {
+    position: absolute;
+    top: 52px;
+    right: 10px;
+    z-index: 31;
+    width: 230px;
+    padding: 14px 14px 12px;
+    border-radius: 14px;
+    background: rgba(18, 17, 26, 0.96);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(10px);
+}
+
+.mix-bgtune-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.mix-bgtune-row span {
+    flex: 0 0 auto;
+    font-size: 12px;
+    color: rgba(242, 240, 247, 0.75);
+}
+
+.mix-bgtune-row input[type="range"] {
+    flex: 1;
+    min-width: 0;
+    accent-color: var(--mix-violet);
+}
+
+.mix-bgtune-reset {
+    display: block;
+    width: 100%;
+    padding: 7px 0;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 9px;
+    background: transparent;
+    color: rgba(242, 240, 247, 0.7);
+    font-size: 12px;
 }
 
 .mix-game-header {

@@ -2035,17 +2035,29 @@ function MediaFileBubble({
 
     if (fileType === "image" && url) {
         const displayTitle = msg.mediaData?.imageGenerationPrompt ? "" : title;
-        const canRegenerateImage = Boolean(msg.mediaData?.label?.trim())
+        // 重试把状态落库为 pending（见 generated-image-retry.ts），角标据此显示——
+        // 比组件内的 imageRegenerating 可靠：滚远了卸载再回来，角标还在。
+        const imageRegenPending = msg.mediaData?.imageGenerationStatus === "pending";
+        const canRegenerateImage = !imageRegenPending
+            && Boolean(msg.mediaData?.label?.trim())
             && (msg.mediaData?.imageGenerationStatus === "generated" || Boolean(msg.mediaData?.imageGenerationPrompt));
         return (
             <div className="chat-generated-image-retry-stack">
-                <MediaImageWithPreview
-                    url={url}
-                    title={displayTitle}
-                    filename={title}
-                    onRegenerate={canRegenerateImage ? openImagePromptEditor : undefined}
-                    regenerating={imageRegenerating}
-                />
+                <div className="chat-generated-image-regen-wrap">
+                    <MediaImageWithPreview
+                        url={url}
+                        title={displayTitle}
+                        filename={title}
+                        onRegenerate={canRegenerateImage ? openImagePromptEditor : undefined}
+                        regenerating={imageRegenerating}
+                    />
+                    {imageRegenPending && (
+                        <div className="chat-generated-image-regen-badge" aria-hidden="true">
+                            <span className="chat-generated-image-regen-spinner" />
+                            生成中
+                        </div>
+                    )}
+                </div>
                 {showImagePromptEditor && typeof document !== "undefined" && createPortal(
                     <GeneratedImagePromptDialog
                         value={imagePromptDraft}

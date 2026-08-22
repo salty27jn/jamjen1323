@@ -816,6 +816,7 @@ const MIX_MATERIAL_FIELDS = {
     contract: { type: "string", description: "ticket/encore：输出契约" },
     renderHtml: { type: "string", description: "ticket/encore：渲染代码完整 HTML" },
     previewRaw: { type: "string", description: "ticket/encore：预览示例数据（壳内原文，不带 [状态栏]/[小剧场] 标记）" },
+    historyFeed: { type: "string", enum: ["latest", "all", "none"], description: "ticket/encore 选填：往期轮次的壳内原文要不要回传给模型。latest（默认）只回传最近一轮，token 不随轮数涨；all 全部回传，契约需要引用往期内容时才用；none 完全不回传，纯展示、最省 token" },
     vars: {
         type: "array",
         items: { type: "object", properties: { name: { type: "string" }, initial: { type: "string" } }, required: ["name"] },
