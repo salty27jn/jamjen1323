@@ -16,6 +16,14 @@ export type ScripthubMode = "A" | "B";
 
 export type ScripthubScriptStatus = "not_started" | "preparing" | "playing" | "finished";
 
+/** 玩家角色卡字段（AI 草稿 → 玩家确认，游戏开始前在准备工作填完） */
+export type PlayerCardField = { label: string; value: string; hint?: string };
+
+export type PlayerCardDraft = {
+  status: "none" | "drafted" | "confirmed"; // none=未生成草稿 drafted=草稿待确认 confirmed=已确认
+  fields: PlayerCardField[];
+};
+
 export type ScripthubScript = {
   id: string;
   name: string;            // 剧本名（标题）
@@ -27,8 +35,9 @@ export type ScripthubScript = {
   npcIds: string[];        // 生成的角色卡 id（联系人）
   privateSessionIds: string[]; // 私聊会话 id
   groupSessionIds: string[];   // 群聊会话 id
-  userIdentityId?: string;     // 面具 id
-  round: number;           // 当前回合
+   userIdentityId?: string;     // 面具 id
+   playerCard?: PlayerCardDraft; // 玩家角色卡（准备工作内 AI 草稿 + 玩家确认）
+   round: number;           // 当前回合
   stats: Record<string, number>;    // 属性快照（当前值）
   statsMax: Record<string, number>;  // 属性上限
   messages: ScriptTurnMessage[];   // 跑团正文历史（DM叙述 + 玩家行动）
@@ -83,6 +92,10 @@ function normalizeScripts(scripts: ScripthubScript[]): ScripthubScript[] {
       round: typeof script.round === "number" ? script.round : 1,
       mode: script.mode === "B" ? "B" : "A",
       status: script.status || "not_started",
+      playerCard:
+        (script.playerCard?.status === "drafted" || script.playerCard?.status === "confirmed") && Array.isArray(script.playerCard.fields)
+          ? { status: script.playerCard.status, fields: script.playerCard.fields.filter((f): f is PlayerCardField => Boolean(f && typeof f.label === "string" && typeof f.value === "string")) }
+          : { status: "none", fields: [] },
     });
   }
   return normalized;

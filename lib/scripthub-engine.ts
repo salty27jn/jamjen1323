@@ -1,7 +1,7 @@
 import { simpleLLMCall } from "./api-helpers";
 import { loadApiConfigs, loadBindingConfig, loadUserIdentities, resolveBinding, resolveUserIdentity } from "./settings-storage";
 import type { UserIdentity } from "@/components/settings/user-identity";
-import type { ScripthubScript } from "./scripthub-storage";
+import type { ScripthubScript, PlayerCardField } from "./scripthub-storage";
 import { kvGet } from "./kv-db";
 import { loadChatSessions, loadChatMessages, pushChatMessage } from "./chat-storage";
 import { loadCharacters } from "./character-storage";
@@ -175,7 +175,57 @@ function buildMaskText(identity: UserIdentity | null): string {
   return out;
 }
 
-/** 组装剧本 DM 系统提示（注入剧本原文 + 选项规则 + 状态栏 + 面具 + 历史）。 */
+/** 玩家角色卡文本（已确认的字段注入 DM 提示词；未确认不注入）。 */
+function buildPlayerCardText(script: ScripthubScript): string {
+  const card = script.playerCard;
+  if (!card || card.status !== "confirmed" || card.fields.length === 0) return "";
+  return card.fields.map((f) => f.label + "：" + (f.value.trim() || "（玩家未填）")).join("\n");
+}
+
+/**
+ * AI 草稿制：读剧本原文，产出「游戏开始前需玩家本人填写/确认」的角色卡字段草稿。
+ * 剧本已给出的值原文预填；留白项 value 置空串、由 hint 提示填法（hint 拼进 label 展示）。
+ */
+export async function draftPlayerCard(script: ScripthubScript): Promise<PlayerCardField[]> {
+  const apiConfig = resolveApiConfig();
+  if (!apiConfig) throw new Error("尚未配置 API。请先到 设置 → API 配置 添加一个可用的接口。");
+
+  const system = [
+    "你是剧本解析助手。阅读下面这个玩家原创剧本，找出游戏正式开始前需要【玩家本人】填写或确认的角色信息字段。",
+    "规则：",
+    "1. 只列与玩家（主控）角色相关的字段；NPC 的信息不要列为待填项。",
+    "2. 剧本已明确给出的值直接预填进 value（原文搬运，零改编）；剧本留白或标注「请补充/随机/可选」的，value 置为空字符串，并在 hint 里写清填法（如：请补充3~5个词 / 困难、勉强度日、普通三选一 / 可填「随机」）。",
+    "3. 字段名 label 保持剧本原文的叫法（如：姓名、性别、年级/专业、性格倾向、经济紧张程度）。",
+    "4. 字段数量控制在 3~12 个；没有需要玩家填写的字段时返回空数组。",
+    "5. 严格只输出 JSON，不要任何其他文字：{\"fields\":[{\"label\":\"字段名\",\"value\":\"预填值或空串\",\"hint\":\"填法提示或空串\"}]}",
+  ].join("\n");
+  const messages = [
+    { role: "system", content: system },
+    { role: "user", content: "# 剧本原文\n" + script.content },
+  ];
+  const result = await simpleLLMCall(apiConfig, messages, { temperature: 0.2 });
+  if (!result.content) throw new Error("AI 解析失败：" + (result.error || "返回空内容"));
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let p: any;
+  try {
+    p = JSON.parse(extractJSON(result.content));
+  } catch (err) {
+    throw new Error("AI 返回格式错误，无法解析：" + (err as Error).message);
+  }
+  const fields: PlayerCardField[] = Array.isArray(p.fields)
+    ? p.fields
+        .filter((f: unknown) => f && typeof (f as { label?: unknown }).label === "string")
+        .map((f: { label: string; value?: unknown; hint?: unknown }): PlayerCardField => ({
+          label: String(f.label).trim(),
+          value: typeof f.value === "string" ? f.value : "",
+          ...(typeof f.hint === "string" && f.hint.trim() ? { hint: f.hint.trim() } : {}),
+        }))
+        .filter((f: PlayerCardField) => f.label && !/npc|房东|房東|对方角色/.test(f.label))
+    : [];
+  return fields;
+}
+
+/** 组装剧本 DM 系统提示（注入剧本原文 + 玩家角色卡 + 选项规则 + 状态栏 + 面具 + 历史）。 */
 export function buildScriptSystemPrompt(script: ScripthubScript, identity: UserIdentity | null): string {
   const parts: string[] = [];
   parts.push("你是本剧本的 DM（主持人），负责剧情推进、NPC 扮演、事件生成、属性结算、感情阶段控制。请完全遵循下面这个玩家原创剧本，不要参考或引入任何其他剧本。");
@@ -183,6 +233,12 @@ export function buildScriptSystemPrompt(script: ScripthubScript, identity: UserI
   parts.push("# 剧本原文");
   parts.push(script.content);
   parts.push("");
+  const playerCard = buildPlayerCardText(script);
+  if (playerCard) {
+    parts.push("# 玩家角色卡（游戏开始前已由玩家确认，直接采用，禁止再向玩家索要这些信息）");
+    parts.push(playerCard);
+    parts.push("");
+  }
   parts.push("# 当前状态栏");
   parts.push(formatScriptStats(script));
   parts.push("");
@@ -297,7 +353,7 @@ export function buildLinkedAppsContext(script: ScripthubScript): string {
 export async function runScriptTurn(
   script: ScripthubScript,
   userText: string,
-  opts?: { signal?: AbortSignal },
+  opts?: { signal?: AbortSignal; opening?: boolean },
 ): Promise<ScriptTurnResult> {
   const apiConfig = resolveApiConfig();
   if (!apiConfig) {
@@ -331,7 +387,18 @@ export async function runScriptTurn(
   if (history) parts.push("# 剧情历史\n" + history);
   if (linkedChat) parts.push("# 剧情期间玩家与 NPC 的聊天记录\n" + linkedChat + "\n（以上聊天发生在剧情推进期间，请据此自然回应并计入剧情影响）");
   if (linkedApps) parts.push("# 联动应用动态\n" + linkedApps + "\n（以上来自朋友圈/日历/手记，请据此保持剧情连贯）");
-  parts.push("# 玩家本轮行动\n" + userText);
+  if (opts?.opening) {
+    parts.push(
+      "# 系统指令（开场回合）",
+      "这是本剧本的第一回合。请直接根据剧本原文" + (buildPlayerCardText(script) ? "与玩家角色卡" : "") + "生成本剧本的开场剧情（第一幕）：",
+      "- 交代开场场景、时间、玩家身份处境与出场 NPC；",
+      "- 剧情正文自然推进到一个需要玩家决策的点，并以 4 个行动选项收尾；",
+      "- 禁止在正文里向玩家索要任何角色卡/设定信息（这些已在准备工作确认完毕）；",
+      "- 其余规则（选项规则、回覆格式）照常执行。",
+    );
+  } else {
+    parts.push("# 玩家本轮行动\n" + userText);
+  }
   const userMsg = parts.join("\n\n");
 
   const messages = [

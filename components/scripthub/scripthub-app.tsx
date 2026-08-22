@@ -21,13 +21,14 @@ import {
   cleanupScriptWorldBooks,
   type ScripthubScript,
   type ScriptTurnMessage,
+  type PlayerCardField,
 } from "@/lib/scripthub-storage";
 import { decodeTxtArrayBuffer } from "@/lib/reading-parser";
 import { loadUserIdentities } from "@/lib/settings-storage";
 import type { UserIdentity } from "@/components/settings/user-identity";
 import { loadCharacters } from "@/lib/character-storage";
 import type { Character } from "@/lib/character-types";
-import { runScriptTurn, applyStateChanges, formatScriptStats, deliverLinkedMessages, deliverLinkedPosts, deliverLinkedCalendar, deliverLinkedDiary, rollD20 } from "@/lib/scripthub-engine";
+import { runScriptTurn, applyStateChanges, formatScriptStats, deliverLinkedMessages, deliverLinkedPosts, deliverLinkedCalendar, deliverLinkedDiary, rollD20, draftPlayerCard } from "@/lib/scripthub-engine";
 import { ChatPageHeader } from "@/components/chat/chat-page-header";
 import { MessageBubble } from "@/components/chat/message-bubble";
 import type { ChatMessage } from "@/lib/chat-storage";
@@ -177,9 +178,9 @@ export function ScriptHubApp({ onClose, onOpenSettings }: { onClose: () => void;
       onPickFile={() => fileInputRef.current?.click()}
       onEnter={id => {
         setSelectedId(id);
-        // 首次准备已完成（NPC 角色卡 + 面具齐备）→ 直接续玩游戏，跳过准备工作
+        // 准备已全部完成（NPC 角色卡 + 面具 + 玩家角色卡确认）→ 直接续玩游戏，跳过准备工作
         const s = getScript(id);
-        if (s && s.npcIds.length > 0 && s.userIdentityId) setView("playing");
+        if (s && s.npcIds.length > 0 && s.userIdentityId && s.playerCard?.status === "confirmed") setView("playing");
         else setView("setup");
       }}
       onDelete={handleDelete}
@@ -292,6 +293,10 @@ function SetupScreen({ scriptId, onBack, onClose, onStart, onOpenSettings }: { s
   const [identities, setIdentities] = useState<UserIdentity[]>([]);
   const [generatingNpcs, setGeneratingNpcs] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [cardDrafting, setCardDrafting] = useState(false);
+  const [cardError, setCardError] = useState<string | null>(null);
+  // 草稿编辑态：仅在 status==="drafted" 时可编辑；确认后只读
+  const [draftFields, setDraftFields] = useState<PlayerCardField[]>([]);
 
   const refresh = useCallback(() => {
     const s = getScript(scriptId);
@@ -301,6 +306,7 @@ function SetupScreen({ scriptId, onBack, onClose, onStart, onOpenSettings }: { s
       setNpcs(s.npcIds.map(id => chars.find(c => c.id === id)).filter((c): c is Character => Boolean(c)));
     }
     setIdentities(loadUserIdentities());
+    setDraftFields(s?.playerCard?.status === "drafted" ? s.playerCard.fields.map(f => ({ ...f })) : []);
   }, [scriptId]);
 
   useEffect(() => {
@@ -321,10 +327,56 @@ function SetupScreen({ scriptId, onBack, onClose, onStart, onOpenSettings }: { s
 
   const npcReady = script.npcIds.length > 0;
   const maskReady = Boolean(script.userIdentityId);
-  const allReady = npcReady && maskReady;
+  const cardReady = script.playerCard?.status === "confirmed";
+  const allReady = npcReady && maskReady && cardReady;
 
   const pickMask = (id: string) => {
     updateScript(scriptId, { userIdentityId: id });
+    refresh();
+  };
+
+  // AI 草稿：读剧本原文，产出需要玩家填写/确认的角色卡字段
+  const handleDraftCard = async () => {
+    setCardDrafting(true);
+    setCardError(null);
+    try {
+      const fields = await draftPlayerCard(getScript(scriptId)!);
+      updateScript(scriptId, { playerCard: { status: "drafted", fields } });
+      refresh();
+    } catch (err) {
+      setCardError(err instanceof Error ? err.message : "AI 解析失败，请重试");
+    } finally {
+      setCardDrafting(false);
+    }
+  };
+
+  const handleConfirmCard = () => {
+    // 空字段也允许确认（玩家有权留白），但至少要有字段结构
+    if (draftFields.length === 0) {
+      setCardError("角色卡草稿为空：请先生成草稿");
+      return;
+    }
+    updateScript(scriptId, { playerCard: { status: "confirmed", fields: draftFields.map(f => ({ label: f.label, value: f.value.trim(), hint: f.hint })) } });
+    setCardError(null);
+    refresh();
+  };
+
+  const handleEditCard = () => {
+    updateScript(scriptId, { playerCard: { status: "drafted", fields: script.playerCard?.fields ?? [] } });
+    refresh();
+  };
+
+  // 清空游玩进度（保留 NPC 联系人），回到准备流程重新走一遍
+  const handleResetProgress = () => {
+    if (!window.confirm("确认清空本剧本的游玩进度与角色卡草稿？（NPC 联系人保留，之后重新走准备工作）")) return;
+    updateScript(scriptId, {
+      round: 1,
+      stats: {},
+      statsMax: {},
+      messages: [],
+      status: "not_started",
+      playerCard: { status: "none", fields: [] },
+    });
     refresh();
   };
 
@@ -343,6 +395,7 @@ function SetupScreen({ scriptId, onBack, onClose, onStart, onOpenSettings }: { s
           onClose={() => setMenuOpen(false)}
           actions={[
             { label: "返回剧本列表", onClick: onBack },
+            { label: "清除进度 · 重新准备", onClick: handleResetProgress, danger: true },
             { label: "退出剧本工坊", onClick: onClose, danger: true },
           ]}
         />
@@ -430,12 +483,76 @@ function SetupScreen({ scriptId, onBack, onClose, onStart, onOpenSettings }: { s
           )}
         </div>
 
+        {/* ── 你的角色卡（AI 草稿 → 玩家填写确认） ── */}
+        <div style={S.card}>
+          <div style={S.label}>你的角色卡（剧本留给主控填写的部分）</div>
+          {cardDrafting ? (
+            <div style={{ display: "flex", alignItems: "center", gap: 8, color: "rgba(255,255,255,0.5)", fontSize: "calc(12px*var(--app-text-scale,1))" }}>
+              <LoaderCircle size={15} style={{ animation: "spin 1s linear infinite" }} /> AI 正在按剧本原文提取需要你填写的字段…
+            </div>
+          ) : !script.playerCard || script.playerCard.status === "none" ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(255,255,255,0.3)", lineHeight: 1.7 }}>
+                开局前先填好你在剧本里的身份。AI 会读一遍剧本原文，列出所有需要你填写的字段（剧本已给出的值会自动预填），你逐项确认后才会开始游戏。
+              </div>
+              <button onClick={handleDraftCard} disabled={!npcReady} style={npcReady ? S_primaryBtn : { ...S_primaryBtn, opacity: 0.4, cursor: "not-allowed" }}>
+                AI 生成角色卡草稿
+              </button>
+              {!npcReady && <div style={{ fontSize: "calc(10.5px*var(--app-text-scale,1))", color: "rgba(255,180,120,0.7)" }}>请先生成 NPC 角色卡</div>}
+            </div>
+          ) : script.playerCard.status === "drafted" ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {script.playerCard.fields.length === 0 ? (
+                <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(255,255,255,0.35)", lineHeight: 1.7 }}>
+                  本剧本没有检测到需要你预填的字段，可直接确认进入游戏。
+                </div>
+              ) : (
+                draftFields.map((f, i) => (
+                  <div key={f.label + i}>
+                    <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(200,160,100,0.75)", marginBottom: 3 }}>
+                      {f.label}
+                      {f.hint && <span style={{ color: "rgba(255,255,255,0.28)", marginLeft: 6 }}>{f.hint}</span>}
+                    </div>
+                    <input
+                      value={f.value}
+                      onChange={e => {
+                        const next = [...draftFields];
+                        next[i] = { ...f, value: e.target.value };
+                        setDraftFields(next);
+                      }}
+                      placeholder="填写…"
+                      style={S_cardInput}
+                    />
+                  </div>
+                ))
+              )}
+              {cardError && <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(255,140,120,0.9)" }}>{cardError}</div>}
+              <div style={{ display: "flex", gap: 8 }}>
+                <button onClick={handleConfirmCard} style={S_primaryBtn}>✓ 确认角色卡，完成准备</button>
+                <button onClick={handleDraftCard} style={S_ghostBtn}>重新生成草稿</button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {script.playerCard.fields.map(f => (
+                <div key={f.label} style={{ display: "flex", gap: 8, fontSize: "calc(12px*var(--app-text-scale,1))", lineHeight: 1.6 }}>
+                  <span style={{ color: "rgba(200,160,100,0.7)", flexShrink: 0 }}>{f.label}</span>
+                  <span style={{ color: "rgba(255,255,255,0.75)", wordBreak: "break-all" }}>{f.value.trim() || "（留白）"}</span>
+                </div>
+              ))}
+              <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(140,220,160,0.8)" }}>✓ 已确认，开局后 DM 直接采用</div>
+              <button onClick={handleEditCard} style={S_ghostBtn}>重新编辑</button>
+            </div>
+          )}
+        </div>
+
         {/* ── 绑定 ── */}
         <div style={S.card}>
           <div style={S.label}>会话绑定</div>
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <BindRow ok={maskReady} label="面具" value={maskReady ? (script.userIdentityId || "") : "未绑定"} />
             <BindRow ok={npcReady} label="NPC 角色卡" value={npcReady ? `${script.npcIds.length} 张` : "未生成"} />
+            <BindRow ok={cardReady} label="你的角色卡" value={cardReady ? `${script.playerCard?.fields.length ?? 0} 项已确认` : script.playerCard?.status === "drafted" ? "草稿待确认" : "未生成"} />
             <BindRow ok={script.privateSessionIds.length > 0} label="私聊会话" value={script.privateSessionIds.length > 0 ? `${script.privateSessionIds.length} 个` : "未建立"} />
             <BindRow ok={allReady} label="剧本引擎" value="属性 / 回合 / 判定 / 好感 全自动" />
           </div>
@@ -446,7 +563,7 @@ function SetupScreen({ scriptId, onBack, onClose, onStart, onOpenSettings }: { s
           onClick={onStart}
           style={allReady ? S_readyBtn : { ...S_primaryBtn, opacity: 0.4, cursor: "not-allowed" }}
         >
-          {allReady ? "✓ 全部就绪 · 开始游戏" : "⏳ 准备中 · 完成角色卡与面具后开始"}
+          {allReady ? "✓ 全部就绪 · 开始游戏" : "⏳ 准备中 · 完成 NPC / 面具 / 角色卡后开始"}
         </button>
       </div>
     </div>
@@ -461,6 +578,16 @@ const S_primaryBtn: React.CSSProperties = {
 const S_readyBtn: React.CSSProperties = {
   ...S_primaryBtn,
   background: "rgba(140,220,160,0.25)", color: "#c8f0d0",
+};
+
+const S_ghostBtn: React.CSSProperties = {
+  padding: "12px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.15)", background: "transparent", color: "rgba(255,255,255,0.6)",
+  fontSize: "calc(12px*var(--app-text-scale,1))", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
+};
+
+const S_cardInput: React.CSSProperties = {
+  width: "100%", boxSizing: "border-box", padding: "8px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)",
+  background: "rgba(0,0,0,0.3)", color: "#e0dcd5", fontSize: "calc(12.5px*var(--app-text-scale,1))", outline: "none", fontFamily: "inherit",
 };
 
 function BindRow({ ok, label, value }: { ok: boolean; label: string; value: string }) {
@@ -520,6 +647,52 @@ function PlayingScreen({ scriptId, onBack, onClose, fontScale, onFontScale }: { 
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scriptId]);
+
+  // 开场自动化：首次进入且无任何消息 → DM 主动生成开场剧情，玩家无需盲打输入
+  const startOpening = useCallback(() => {
+    const s = getScript(scriptId);
+    if (!s || (s.messages || []).length > 0) return;
+    setError(null);
+    const token = ++genTokenRef.current;
+    setGenerating(true);
+    (async () => {
+      try {
+        const result = await runScriptTurn(getScript(scriptId)!, "", { opening: true });
+        if (token !== genTokenRef.current) return;
+        const settled = applyStateChanges(getScript(scriptId)!, result.stateChanges, result.stateNotes);
+        const assistantMsg: ScriptTurnMessage = {
+          role: "assistant",
+          content: result.narration,
+          choices: result.choices,
+          stateNotes: settled.stateNotes,
+          createdAt: new Date().toISOString(),
+        };
+        const finalMessages = [...(getScript(scriptId)?.messages || []), assistantMsg];
+        setMessages(finalMessages);
+        setCurrentChoices(result.choices);
+        setCurrentNotes(settled.stateNotes);
+        updateScript(scriptId, { messages: finalMessages, stats: settled.stats, statsMax: settled.statsMax, round: Math.max(1, getScript(scriptId)?.round ?? 1) });
+        setScript({ ...getScript(scriptId)! });
+        if (result.linkedMessages.length > 0) {
+          ensureScriptSessions(scriptId);
+          deliverLinkedMessages(getScript(scriptId)!, result.linkedMessages);
+        }
+        if (result.linkedPosts.length > 0) deliverLinkedPosts(getScript(scriptId)!, result.linkedPosts);
+        if (result.linkedCalendar.length > 0) deliverLinkedCalendar(getScript(scriptId)!, result.linkedCalendar);
+        if (result.linkedDiary.length > 0) deliverLinkedDiary(getScript(scriptId)!, result.linkedDiary);
+      } catch (err) {
+        if (token !== genTokenRef.current) return;
+        setError(err instanceof Error ? err.message : "开场生成失败");
+      } finally {
+        if (token === genTokenRef.current) setGenerating(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scriptId]);
+
+  useEffect(() => {
+    startOpening();
+  }, [startOpening]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -629,11 +802,14 @@ function PlayingScreen({ scriptId, onBack, onClose, fontScale, onFontScale }: { 
 
       {/* 消息流 */}
       <div ref={scrollRef} className="chat-message-scroll flex-1 overflow-y-auto" style={{ padding: "10px 12px" }}>
-        {messages.length === 0 && (
+        {messages.length === 0 && !generating && !error && (
           <div style={{ textAlign: "center", padding: "48px 24px", fontSize: "calc(12px*var(--app-text-scale,1))", color: "var(--c-text)", lineHeight: 1.8 }}>
-            委讬店 · 第1天 · 上午
-            <br />
-            游戏已开始。在下方输入你的第一个行动，DM 将推进剧情。
+            准备就绪。DM 将根据剧本生成开场剧情。
+          </div>
+        )}
+        {generating && messages.length === 0 && (
+          <div style={{ textAlign: "center", padding: "48px 24px", fontSize: "calc(12px*var(--app-text-scale,1))", color: "var(--c-text)", lineHeight: 1.8 }}>
+            DM 正在按「{script.name}」生成开场剧情…
           </div>
         )}
         {messages.map((m, i) => (
@@ -655,6 +831,14 @@ function PlayingScreen({ scriptId, onBack, onClose, fontScale, onFontScale }: { 
         {error && (
           <div style={{ margin: "8px 0", padding: "10px 12px", borderRadius: 8, background: "rgba(255,100,80,0.08)", border: "1px solid rgba(255,100,80,0.3)", color: "rgba(255,140,120,0.95)", fontSize: "calc(12px*var(--app-text-scale,1))" }}>
             {error}
+            {messages.length === 0 && (
+              <button
+                onClick={() => { setError(null); startOpening(); }}
+                style={{ display: "block", marginTop: 8, padding: "6px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.06)", color: "var(--c-text-title)", fontSize: "calc(12px*var(--app-text-scale,1))", cursor: "pointer", fontFamily: "inherit" }}
+              >
+                重试开场生成
+              </button>
+            )}
           </div>
         )}
       </div>
