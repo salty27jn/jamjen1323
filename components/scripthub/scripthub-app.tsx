@@ -34,6 +34,28 @@ import type { ChatMessage } from "@/lib/chat-storage";
 
 type View = "home" | "setup" | "playing";
 
+/* ── 正文字号（剧本工坊局部，独立于全局，持久化到本地） ── */
+const FONT_SCALE_KEY = "scripthub-font-scale";
+const FONT_SCALE_MIN = 0.85;
+const FONT_SCALE_MAX = 1.6;
+
+function clampFontScale(v: number): number {
+  if (!Number.isFinite(v)) return 1;
+  return Math.min(FONT_SCALE_MAX, Math.max(FONT_SCALE_MIN, Math.round(v * 100) / 100));
+}
+
+function loadFontScale(): number {
+  if (typeof window === "undefined") return 1;
+  try {
+    const v = parseFloat(window.localStorage.getItem(FONT_SCALE_KEY) || "");
+    return Number.isFinite(v) && v >= FONT_SCALE_MIN && v <= FONT_SCALE_MAX ? v : 1;
+  } catch { return 1; }
+}
+
+function saveFontScale(v: number) {
+  try { window.localStorage.setItem(FONT_SCALE_KEY, String(v)); } catch { /* 存储不可用时静默降级为会话内生效 */ }
+}
+
 const S: Record<string, React.CSSProperties> = {
   root: { position: "absolute", inset: 0, background: "#0a0a0f", display: "flex", flexDirection: "column", fontFamily: "'PingFang SC', system-ui, sans-serif", color: "#e0dcd5", overflow: "hidden" },
   header: {
@@ -57,7 +79,14 @@ export function ScriptHubApp({ onClose, onOpenSettings }: { onClose: () => void;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
+  const [fontScale, setFontScale] = useState<number>(() => loadFontScale());
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const changeFontScale = useCallback((v: number) => {
+    const clamped = clampFontScale(v);
+    setFontScale(clamped);
+    saveFontScale(clamped);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -125,7 +154,7 @@ export function ScriptHubApp({ onClose, onOpenSettings }: { onClose: () => void;
   }, []);
 
   if (view === "playing" && selectedId) {
-    return <PlayingScreen scriptId={selectedId} onBack={() => { setView("setup"); }} onClose={onClose} />;
+    return <PlayingScreen scriptId={selectedId} onBack={() => { setView("setup"); }} onClose={onClose} fontScale={fontScale} onFontScale={changeFontScale} />;
   }
 
   if (view === "setup" && selectedId) {
@@ -146,7 +175,13 @@ export function ScriptHubApp({ onClose, onOpenSettings }: { onClose: () => void;
       importing={importing}
       importError={importError}
       onPickFile={() => fileInputRef.current?.click()}
-      onEnter={id => { setSelectedId(id); setView("setup"); }}
+      onEnter={id => {
+        setSelectedId(id);
+        // 首次准备已完成（NPC 角色卡 + 面具齐备）→ 直接续玩游戏，跳过准备工作
+        const s = getScript(id);
+        if (s && s.npcIds.length > 0 && s.userIdentityId) setView("playing");
+        else setView("setup");
+      }}
       onDelete={handleDelete}
       onClose={onClose}
       fileInputRef={fileInputRef}
@@ -218,7 +253,6 @@ function HomeScreen({
                 {w.status === "playing" && <span style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(200,255,180,0.7)", marginLeft: 0, fontWeight: 400 }}>进行中 · 第{w.round}回合</span>}
                 {w.status === "preparing" && <span style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(255,220,160,0.7)", marginLeft: 0, fontWeight: 400 }}>准备中</span>}
               </div>
-              <span style={{ fontSize: "calc(10px*var(--app-text-scale,1))", color: "rgba(200,160,100,0.6)", border: "1px solid rgba(200,160,100,0.25)", borderRadius: 20, padding: "2px 8px", flexShrink: 0 }}>模式{w.mode}</span>
             </div>
             <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(255,255,255,0.35)", marginBottom: 10, lineHeight: 1.6, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
               {w.content.replace(/\s+/g, " ").trim().slice(0, 120)}...
@@ -257,6 +291,7 @@ function SetupScreen({ scriptId, onBack, onClose, onStart, onOpenSettings }: { s
   const [npcs, setNpcs] = useState<Character[]>([]);
   const [identities, setIdentities] = useState<UserIdentity[]>([]);
   const [generatingNpcs, setGeneratingNpcs] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const refresh = useCallback(() => {
     const s = getScript(scriptId);
@@ -300,8 +335,18 @@ function SetupScreen({ scriptId, onBack, onClose, onStart, onOpenSettings }: { s
         <span style={{ fontSize: "calc(13px*var(--app-text-scale,1))", letterSpacing: "0.2em", color: "rgba(255,255,255,0.3)", fontFamily: "monospace" }}>
           准备工作
         </span>
-        <button style={S.btn} onClick={onClose}><MoreHorizontal size={20} /></button>
+        <button style={S.btn} onClick={() => setMenuOpen(true)} aria-label="更多"><MoreHorizontal size={20} /></button>
       </div>
+
+      {menuOpen && (
+        <ScriptHubMenu
+          onClose={() => setMenuOpen(false)}
+          actions={[
+            { label: "返回剧本列表", onClick: onBack },
+            { label: "退出剧本工坊", onClick: onClose, danger: true },
+          ]}
+        />
+      )}
 
       <div style={S.body}>
         {/* ── 剧本 ── */}
@@ -312,7 +357,7 @@ function SetupScreen({ scriptId, onBack, onClose, onStart, onOpenSettings }: { s
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: "calc(15px*var(--app-text-scale,1))", fontWeight: 600 }}>{script.name}</div>
               <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(255,255,255,0.35)" }}>
-                模式{script.mode} · {script.mode === "A" ? "全结构化" : "有角色无数值"} · {script.fileName}
+                {script.fileName}
               </div>
             </div>
             <span style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(140,220,160,0.8)" }}>✓ 已导入</span>
@@ -392,7 +437,7 @@ function SetupScreen({ scriptId, onBack, onClose, onStart, onOpenSettings }: { s
             <BindRow ok={maskReady} label="面具" value={maskReady ? (script.userIdentityId || "") : "未绑定"} />
             <BindRow ok={npcReady} label="NPC 角色卡" value={npcReady ? `${script.npcIds.length} 张` : "未生成"} />
             <BindRow ok={script.privateSessionIds.length > 0} label="私聊会话" value={script.privateSessionIds.length > 0 ? `${script.privateSessionIds.length} 个` : "未建立"} />
-            <BindRow ok={allReady} label="剧本引擎" value="模式A · 属性/回合/判定/好感全自动" />
+            <BindRow ok={allReady} label="剧本引擎" value="属性 / 回合 / 判定 / 好感 全自动" />
           </div>
         </div>
 
@@ -440,7 +485,7 @@ function toChatMessage(t: ScriptTurnMessage, idx: number): ChatMessage {
   };
 }
 
-function PlayingScreen({ scriptId, onBack, onClose }: { scriptId: string; onBack: () => void; onClose: () => void }) {
+function PlayingScreen({ scriptId, onBack, onClose, fontScale, onFontScale }: { scriptId: string; onBack: () => void; onClose: () => void; fontScale: number; onFontScale: (v: number) => void }) {
   const [script, setScript] = useState<ScripthubScript | null>(() => getScript(scriptId));
   const [messages, setMessages] = useState<ScriptTurnMessage[]>(() => (getScript(scriptId)?.messages || []));
   const [currentChoices, setCurrentChoices] = useState<string[]>([]);
@@ -450,6 +495,7 @@ function PlayingScreen({ scriptId, onBack, onClose }: { scriptId: string; onBack
   const [statsOpen, setStatsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentDice, setCurrentDice] = useState<{ sides: number; value: number; label: string } | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const genTokenRef = useRef<number>(0);
 
@@ -458,8 +504,18 @@ function PlayingScreen({ scriptId, onBack, onClose }: { scriptId: string; onBack
     if (s) {
       setScript({ ...s });
       setMessages(s.messages || []);
-      setCurrentChoices([]);
-      setCurrentNotes([]);
+      // 恢复上一轮尚未消费的行动选项：从最新往回找，若最后一条有效消息是带选项的 DM 叙述则恢复其选项；
+      // 若其后已有玩家行动（user 消息），说明选项已被消费，不再恢复。
+      const msgs = s.messages || [];
+      for (let i = msgs.length - 1; i >= 0; i--) {
+        const m = msgs[i];
+        if (m.role === "assistant" && Array.isArray(m.choices) && m.choices.length > 0) {
+          setCurrentChoices(m.choices);
+          setCurrentNotes(m.stateNotes || []);
+          break;
+        }
+        if (m.role === "user") break;
+      }
       updateScript(scriptId, { status: "playing" });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -506,7 +562,7 @@ function PlayingScreen({ scriptId, onBack, onClose }: { scriptId: string; onBack
         : trimmed;
       const result = await runScriptTurn(getScript(scriptId)!, userTextForEngine);
       if (token !== genTokenRef.current) return; // 已被新回合取代
-      const { stats, stateNotes } = applyStateChanges(getScript(scriptId)!, result.stateChanges, result.stateNotes);
+      const { stats, statsMax, stateNotes } = applyStateChanges(getScript(scriptId)!, result.stateChanges, result.stateNotes);
       const assistantMsg: ScriptTurnMessage = {
         role: "assistant",
         content: result.narration,
@@ -522,6 +578,7 @@ function PlayingScreen({ scriptId, onBack, onClose }: { scriptId: string; onBack
       updateScript(scriptId, {
         messages: finalMessages,
         stats,
+        statsMax,
         round: s.round + 1,
       });
       setScript({ ...getScript(scriptId)! });
@@ -553,17 +610,20 @@ function PlayingScreen({ scriptId, onBack, onClose }: { scriptId: string; onBack
   }));
 
   return (
-    <div className="chat-app absolute inset-0 flex flex-col overflow-hidden z-10" style={{ background: "var(--c-page-body-bg)" }}>
+    <div
+      className="chat-app absolute inset-0 flex flex-col overflow-hidden z-10"
+      style={{ background: "var(--c-page-body-bg)", "--app-text-scale": String(fontScale) } as React.CSSProperties}
+    >
       <ChatPageHeader
         title={script.name}
         left={<button className="page-back-btn" aria-label="返回" onClick={onBack}><ChevronLeft size={22} /></button>}
-        right={<button className="page-back-btn" aria-label="更多" onClick={onClose}><MoreHorizontal size={22} /></button>}
+        right={<button className="page-back-btn" aria-label="更多" onClick={() => setMenuOpen(true)}><MoreHorizontal size={22} /></button>}
       />
 
       {/* 会话信息行 */}
       <div style={{ padding: "4px 16px 6px", background: "var(--c-page-body-bg)" }}>
         <span style={{ fontSize: "calc(10px*var(--app-text-scale,1))", color: "var(--c-text)", fontWeight: 500 }}>
-          第 {script.round} 回合 · 模式{script.mode}
+          第 {script.round} 回合
         </span>
       </div>
 
@@ -613,27 +673,53 @@ function PlayingScreen({ scriptId, onBack, onClose }: { scriptId: string; onBack
         </div>
       )}
 
-      {/* 输入栏 + 状态清单开关（＋） */}
-      <div style={{ padding: "0 14px" }}>
-        {statsOpen && (
-          <div style={{ padding: "10px 14px", background: "var(--c-card)", border: "1px solid var(--c-card-border)", borderRadius: 12, marginBottom: 8 }}>
-            {statsList.length === 0 ? (
-              <div style={{ fontSize: "calc(12px*var(--app-text-scale,1))", color: "var(--c-text)" }}>尚无属性数据</div>
-            ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "6px 16px" }}>
-                {statsList.map(s => (
-                  <div key={s.label} style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, fontSize: "calc(12px*var(--app-text-scale,1))" }}>
-                    <span style={{ color: "var(--c-text)" }}>{s.label}</span>
-                    <span style={{ color: "var(--c-text-title)", fontWeight: 600, fontFamily: "monospace", fontSize: "calc(13px*var(--app-text-scale,1))" }}>
-                      {s.max != null ? `${s.value} / ${s.max}` : String(s.value)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            )}
+      {/* 状态栏面板（＋ 开关）：属性进度条 + 最近状态播报 */}
+      {statsOpen && (
+        <div style={{ margin: "0 12px 8px", padding: "12px 14px", background: "var(--c-card)", border: "1px solid var(--c-card-border)", borderRadius: 12, flexShrink: 0 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <span style={{ fontSize: "calc(11px*var(--app-text-scale,1))", letterSpacing: "0.08em", color: "var(--c-text)", fontWeight: 500 }}>
+              状态栏 · 第 {script.round} 回合
+            </span>
+            <button
+              onClick={() => setStatsOpen(false)}
+              aria-label="收起状态栏"
+              style={{ border: "none", background: "transparent", color: "var(--c-text)", fontSize: "calc(12px*var(--app-text-scale,1))", cursor: "pointer", padding: "2px 6px", fontFamily: "inherit" }}
+            >收起 ×</button>
           </div>
-        )}
-      </div>
+          {statsList.length === 0 ? (
+            <div style={{ fontSize: "calc(12px*var(--app-text-scale,1))", color: "var(--c-text)", lineHeight: 1.7 }}>
+              剧情属性尚未产生变化。DM 每回合结算后，好感、理智等数值会显示在这里。
+            </div>
+          ) : (
+            statsList.map(s => (
+              <div key={s.label} style={{ marginBottom: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontSize: "calc(12px*var(--app-text-scale,1))", marginBottom: 4 }}>
+                  <span style={{ color: "var(--c-text)" }}>{s.label}</span>
+                  <span style={{ color: "var(--c-text-title)", fontWeight: 600, fontFamily: "monospace", fontSize: "calc(13px*var(--app-text-scale,1))" }}>
+                    {s.max != null && s.max > 0 ? `${s.value} / ${s.max}` : String(s.value)}
+                  </span>
+                </div>
+                {s.max != null && s.max > 0 && (
+                  <div style={{ height: 4, borderRadius: 2, background: "var(--c-input)", overflow: "hidden" }}>
+                    <div style={{
+                      width: `${Math.max(2, Math.min(100, Math.round((s.value / s.max) * 100)))}%`,
+                      height: "100%", borderRadius: 2,
+                      background: "linear-gradient(90deg, rgba(134,239,172,0.55), rgba(34,197,94,0.9))",
+                    }} />
+                  </div>
+                )}
+              </div>
+            ))
+          )}
+          {currentNotes.length > 0 && (
+            <div style={{ borderTop: "1px solid var(--c-card-border)", marginTop: 4, paddingTop: 8 }}>
+              {currentNotes.slice(-5).map(n => (
+                <div key={n} style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "var(--c-text)", lineHeight: 1.7 }}>· {n}</div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 输入栏 */}
       <div className="chat-input-bar" style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px calc(10px + env(safe-area-inset-bottom, 0px))", background: "var(--c-card)", borderTop: "1px solid var(--c-card-border)" }}>
@@ -680,12 +766,94 @@ function PlayingScreen({ scriptId, onBack, onClose }: { scriptId: string; onBack
           }}
         >➤</button>
       </div>
+      {/* 右上角「三个点」菜单（覆盖层：点遮罩关闭，不打断游戏、不丢选项） */}
+      {menuOpen && (
+        <ScriptHubMenu
+          fontScale={fontScale}
+          onFontScale={onFontScale}
+          onClose={() => setMenuOpen(false)}
+          actions={[
+            { label: "返回准备工作", onClick: onBack },
+            { label: "退出剧本工坊", onClick: onClose, danger: true },
+          ]}
+        />
+      )}
       <style>{`
         @keyframes breathe {
           0%, 100% { opacity: 0.3; transform: scale(0.8); }
           50% { opacity: 1; transform: scale(1.15); }
         }
       `}</style>
+    </div>
+  );
+}
+
+/* ── 「三个点」下拉菜单：字号调节（小A—滑块—大A，参考 P 项目的交互设计，代码独立实现）+ 功能项 ── */
+function ScriptHubMenu({ fontScale, onFontScale, onClose, actions }: {
+  fontScale?: number;
+  onFontScale?: (v: number) => void;
+  onClose: () => void;
+  actions: { label: string; onClick: () => void; danger?: boolean }[];
+}) {
+  const hasFont = typeof fontScale === "number" && typeof onFontScale === "function";
+  return (
+    <div
+      onClick={onClose}
+      aria-label="菜单遮罩"
+      style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.25)", zIndex: 50 }}
+    >
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{
+          position: "absolute", top: "calc(var(--page-header-safe-top, 48px) + 46px)", right: 12,
+          width: 236, background: "var(--c-card)", border: "1px solid var(--c-card-border)",
+          borderRadius: 14, boxShadow: "0 10px 32px rgba(0,0,0,0.35)", padding: "4px 0", overflow: "hidden",
+        }}
+      >
+        {hasFont && (
+          <div style={{ padding: "10px 14px 12px", borderBottom: "1px solid var(--c-card-border)" }}>
+            <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "var(--c-text)", letterSpacing: "0.08em", marginBottom: 8 }}>正文字号 · 即调即存</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <button
+                aria-label="缩小字号"
+                title="缩小字号"
+                onClick={() => onFontScale!(fontScale! - 0.05)}
+                style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid var(--c-card-border)", background: "var(--c-input)", color: "var(--c-text-title)", fontSize: 13, fontWeight: 700, cursor: "pointer", flexShrink: 0, fontFamily: "Georgia, 'Times New Roman', serif", lineHeight: 1 }}
+              >A</button>
+              <input
+                type="range"
+                min={FONT_SCALE_MIN}
+                max={FONT_SCALE_MAX}
+                step={0.05}
+                value={fontScale}
+                onChange={e => onFontScale!(parseFloat(e.target.value))}
+                aria-label="字号滑块"
+                style={{ flex: 1, accentColor: "var(--c-icon-active)", cursor: "pointer" }}
+              />
+              <button
+                aria-label="放大字号"
+                title="放大字号"
+                onClick={() => onFontScale!(fontScale! + 0.05)}
+                style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid var(--c-card-border)", background: "var(--c-input)", color: "var(--c-text-title)", fontSize: 18, fontWeight: 700, cursor: "pointer", flexShrink: 0, fontFamily: "Georgia, 'Times New Roman', serif", lineHeight: 1 }}
+              >A</button>
+            </div>
+            <div style={{ textAlign: "center", fontSize: "calc(10px*var(--app-text-scale,1))", color: "var(--c-text)", marginTop: 6, fontFamily: "monospace" }}>
+              {Math.round(fontScale! * 100)}%
+            </div>
+          </div>
+        )}
+        {actions.map(a => (
+          <button
+            key={a.label}
+            onClick={a.onClick}
+            style={{
+              display: "block", width: "100%", padding: "12px 16px", border: "none", background: "transparent",
+              textAlign: "left", fontSize: "calc(13px*var(--app-text-scale,1))", cursor: "pointer", fontFamily: "inherit",
+              color: a.danger ? "rgba(255,100,80,0.95)" : "var(--c-text-title)",
+            }}
+          >{a.label}</button>
+        ))}
+      </div>
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import Dexie from "dexie";
 import { createCharacter, loadCharacters, saveCharacters } from "./character-storage";
-import { addChatContact, createOrGetSession } from "./chat-storage";
+import { addChatContact, createOrGetSession, loadChatSessions } from "./chat-storage";
 import {
   createWorldBook,
   loadWorldBooks,

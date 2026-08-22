@@ -536,23 +536,23 @@ export function applyStateChanges(
   script: ScripthubScript,
   stateChanges: Record<string, number>,
   statusNotes: string[],
-): { stats: Record<string, number>; stateNotes: string[] } {
+): { stats: Record<string, number>; statsMax: Record<string, number>; stateNotes: string[] } {
   const stats = { ...script.stats };
+  const statsMax = { ...script.statsMax };
   const notes: string[] = [];
 
   for (const [k, delta] of Object.entries(stateChanges)) {
-    const max = script.statsMax[k];
-    const next = max != null
-      ? Math.max(0, Math.min(max, (stats[k] ?? 0) + delta))
-      : Math.max(0, (stats[k] ?? 0) + delta);
-    const actualDelta = next - (stats[k] ?? 0);
+    const prev = stats[k] ?? 0;
+    const next = Math.max(0, prev + delta);
+    // 上限初始化：首次出现的属性默认上限 100；数值超过上限时按 50 一档向上扩容（如金钱 3200 不会被硬砍在 100）
+    let max = statsMax[k];
+    if (max == null) max = 100;
+    if (next > max) max = Math.ceil(next / 50) * 50;
+    statsMax[k] = max;
     stats[k] = next;
+    const actualDelta = next - prev;
     if (actualDelta !== 0) notes.push(k + " " + (actualDelta > 0 ? "+" : "") + actualDelta);
   }
-  // 首次出现且无变化的值也登记进 stats（保持状态栏显示）
-  for (const k of Object.keys(stateChanges)) {
-    if (!(k in stats)) stats[k] = stateChanges[k];
-  }
 
-  return { stats, stateNotes: [...notes, ...statusNotes] };
+  return { stats, statsMax, stateNotes: [...notes, ...statusNotes] };
 }
