@@ -58,7 +58,7 @@ function saveFontScale(v: number) {
 }
 
 const S: Record<string, React.CSSProperties> = {
-  root: { position: "absolute", inset: 0, background: "#0a0a0f", display: "flex", flexDirection: "column", fontFamily: "'PingFang SC', system-ui, sans-serif", color: "#e0dcd5", overflow: "hidden" },
+  root: { position: "absolute", inset: 0, background: "var(--c-page-body-bg)", display: "flex", flexDirection: "column", fontFamily: "'PingFang SC', system-ui, sans-serif", color: "var(--c-text-title)", overflow: "hidden" },
   header: {
     height: "var(--page-header-content-height, 42px)",
     marginTop: "var(--page-header-safe-top, 48px)",
@@ -68,10 +68,10 @@ const S: Record<string, React.CSSProperties> = {
     alignItems: "center",
     flexShrink: 0,
   },
-  btn: { width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", color: "rgba(255,255,255,0.5)", cursor: "pointer" },
+  btn: { width: 36, height: 36, display: "flex", alignItems: "center", justifyContent: "center", background: "none", border: "none", color: "var(--c-icon)", cursor: "pointer" },
   body: { flex: 1, overflow: "auto", padding: "0 20px 96px" },
-  card: { padding: "14px 16px", borderRadius: 10, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.06)", marginBottom: 10 },
-  label: { fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(200,160,100,0.5)", marginBottom: 6, letterSpacing: "0.08em" },
+  card: { padding: "14px 16px", borderRadius: 10, background: "var(--c-card)", border: "1px solid var(--c-card-border)", marginBottom: 10 },
+  label: { fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(150,112,52,0.75)", marginBottom: 6, letterSpacing: "0.08em" },
 };
 
 export function ScriptHubApp({ onClose, onOpenSettings }: { onClose: () => void; onOpenSettings: () => void }) {
@@ -209,7 +209,7 @@ function HomeScreen({
     <div style={S.root}>
       <div style={S.header}>
         <button style={S.btn} onClick={onClose}><ArrowLeft size={20} /></button>
-        <span style={{ fontSize: "calc(13px*var(--app-text-scale,1))", letterSpacing: "0.2em", color: "rgba(255,255,255,0.3)", fontFamily: "monospace" }}>
+        <span style={{ fontSize: "calc(13px*var(--app-text-scale,1))", letterSpacing: "0.2em", color: "var(--c-icon)", fontFamily: "monospace" }}>
           剧本工坊
         </span>
         <button style={S.btn} onClick={onPickFile}><Plus size={20} /></button>
@@ -231,8 +231,8 @@ function HomeScreen({
         {scripts.length === 0 && (
           <div style={{ textAlign: "center", padding: "72px 24px 40px" }}>
             <div style={{ fontSize: "calc(34px*var(--app-text-scale,1))", marginBottom: 14, opacity: 0.6 }}>🎭</div>
-            <div style={{ fontSize: "calc(15px*var(--app-text-scale,1))", color: "rgba(255,255,255,0.75)", fontWeight: 500 }}>还没有剧本</div>
-            <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(255,255,255,0.35)", marginTop: 6, lineHeight: 1.7 }}>
+            <div style={{ fontSize: "calc(15px*var(--app-text-scale,1))", color: "var(--c-text-title)", fontWeight: 500 }}>还没有剧本</div>
+            <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "var(--c-text)", marginTop: 6, lineHeight: 1.7 }}>
               导入你的原创剧本（.txt / .json）
               <br />引擎会自动解析角色卡并接入聊天联动
             </div>
@@ -240,7 +240,7 @@ function HomeScreen({
         )}
 
         {importError && (
-          <div style={{ ...S.card, border: "1px solid rgba(255,100,80,0.35)", color: "rgba(255,140,120,0.9)", fontSize: "calc(12px*var(--app-text-scale,1))" }}>
+          <div style={{ ...S.card, border: "1px solid rgba(214,69,49,0.35)", color: "rgba(178,52,37,0.95)", fontSize: "calc(12px*var(--app-text-scale,1))" }}>
             {importError}
           </div>
         )}
@@ -251,33 +251,33 @@ function HomeScreen({
               <span style={{ fontSize: "calc(20px*var(--app-text-scale,1))" }}>{w.emoji}</span>
               <div style={{ fontSize: "calc(15px*var(--app-text-scale,1))", fontWeight: 600, flex: 1, minWidth: 0 }}>
                 <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", display: "block" }}>{w.name}</span>
-                {w.status === "playing" && <span style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(200,255,180,0.7)", marginLeft: 0, fontWeight: 400 }}>进行中 · 第{w.round}回合</span>}
-                {w.status === "preparing" && <span style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(255,220,160,0.7)", marginLeft: 0, fontWeight: 400 }}>准备中</span>}
+                {w.status === "playing" && <span style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(22,122,69,0.85)", marginLeft: 0, fontWeight: 400 }}>进行中 · 第{w.round}回合</span>}
+                {w.status === "preparing" && <span style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(176,124,26,0.9)", marginLeft: 0, fontWeight: 400 }}>准备中</span>}
               </div>
             </div>
-            <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(255,255,255,0.35)", marginBottom: 10, lineHeight: 1.6, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
+            <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "var(--c-text)", marginBottom: 10, lineHeight: 1.6, overflow: "hidden", textOverflow: "ellipsis", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical" }}>
               {w.content.replace(/\s+/g, " ").trim().slice(0, 120)}...
             </div>
             <div style={{ display: "flex", gap: 8 }}>
-              <button onClick={() => onEnter(w.id)} style={{ flex: 1, padding: "8px 0", borderRadius: 6, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.06)", color: "#e0dcd5", fontSize: "calc(12px*var(--app-text-scale,1))", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, fontFamily: "inherit" }}>
+              <button onClick={() => onEnter(w.id)} style={{ flex: 1, padding: "8px 0", borderRadius: 6, border: "1px solid var(--c-card-border)", background: "var(--c-input)", color: "var(--c-text-title)", fontSize: "calc(12px*var(--app-text-scale,1))", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 4, fontFamily: "inherit" }}>
                 <Play size={12} /> {w.status === "playing" ? "继续" : "进入"}
               </button>
-              <button onClick={() => onDelete(w.id)} style={{ padding: "8px 12px", borderRadius: 6, border: "1px solid rgba(255,100,80,0.2)", background: "transparent", color: "rgba(255,100,80,0.6)", fontSize: "calc(12px*var(--app-text-scale,1))", cursor: "pointer" }}>
+              <button onClick={() => onDelete(w.id)} style={{ padding: "8px 12px", borderRadius: 6, border: "1px solid rgba(214,69,49,0.25)", background: "transparent", color: "rgba(178,52,37,0.75)", fontSize: "calc(12px*var(--app-text-scale,1))", cursor: "pointer" }}>
                 <Trash2 size={12} />
               </button>
             </div>
           </div>
         ))}
 
-        <div onClick={onPickFile} style={{ ...S.card, border: "1.5px dashed rgba(255,255,255,0.15)", background: "transparent", textAlign: "center", cursor: "pointer", padding: "18px 16px" }}>
+        <div onClick={onPickFile} style={{ ...S.card, border: "1.5px dashed var(--c-card-border)", background: "transparent", textAlign: "center", cursor: "pointer", padding: "18px 16px" }}>
           {importing ? (
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, color: "rgba(255,255,255,0.6)", fontSize: "calc(13px*var(--app-text-scale,1))" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, color: "var(--c-text)", fontSize: "calc(13px*var(--app-text-scale,1))" }}>
               <LoaderCircle size={16} style={{ animation: "spin 1s linear infinite" }} /> 正在解析…
             </div>
           ) : (
             <>
-              <div style={{ fontSize: "calc(13px*var(--app-text-scale,1))", color: "rgba(200,160,100,0.8)", fontWeight: 500 }}>＋ 导入新剧本</div>
-              <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(255,255,255,0.3)", marginTop: 4 }}>支持 .txt / .json 原创剧本文件</div>
+              <div style={{ fontSize: "calc(13px*var(--app-text-scale,1))", color: "rgba(150,112,52,0.9)", fontWeight: 500 }}>＋ 导入新剧本</div>
+              <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "var(--c-icon)", marginTop: 4 }}>支持 .txt / .json 原创剧本文件</div>
             </>
           )}
         </div>
@@ -384,7 +384,7 @@ function SetupScreen({ scriptId, onBack, onClose, onStart, onOpenSettings }: { s
     <div style={S.root}>
       <div style={S.header}>
         <button style={S.btn} onClick={onBack}><ArrowLeft size={20} /></button>
-        <span style={{ fontSize: "calc(13px*var(--app-text-scale,1))", letterSpacing: "0.2em", color: "rgba(255,255,255,0.3)", fontFamily: "monospace" }}>
+        <span style={{ fontSize: "calc(13px*var(--app-text-scale,1))", letterSpacing: "0.2em", color: "var(--c-icon)", fontFamily: "monospace" }}>
           准备工作
         </span>
         <button style={S.btn} onClick={() => setMenuOpen(true)} aria-label="更多"><MoreHorizontal size={20} /></button>
@@ -409,11 +409,11 @@ function SetupScreen({ scriptId, onBack, onClose, onStart, onOpenSettings }: { s
             <span style={{ fontSize: "calc(22px*var(--app-text-scale,1))" }}>{script.emoji}</span>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: "calc(15px*var(--app-text-scale,1))", fontWeight: 600 }}>{script.name}</div>
-              <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(255,255,255,0.35)" }}>
+              <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "var(--c-icon)" }}>
                 {script.fileName}
               </div>
             </div>
-            <span style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(140,220,160,0.8)" }}>✓ 已导入</span>
+            <span style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(22,122,69,0.9)" }}>✓ 已导入</span>
           </div>
         </div>
 
@@ -421,26 +421,26 @@ function SetupScreen({ scriptId, onBack, onClose, onStart, onOpenSettings }: { s
         <div style={S.card}>
           <div style={S.label}>NPC 角色卡（引擎自动生成 · 原文搬运零改编）</div>
           {generatingNpcs ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, color: "rgba(255,255,255,0.5)", fontSize: "calc(12px*var(--app-text-scale,1))" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--c-text)", fontSize: "calc(12px*var(--app-text-scale,1))" }}>
               <LoaderCircle size={15} style={{ animation: "spin 1s linear infinite" }} /> 正在按剧本原文生成角色卡…
             </div>
           ) : npcReady ? (
             npcs.map(npc => (
-              <div key={npc.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, background: "rgba(0,0,0,0.3)", marginBottom: 6 }}>
-                <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg,#45A8A0,#2a6a64)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>
+              <div key={npc.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, background: "var(--c-input)", marginBottom: 6 }}>
+                <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg,#45A8A0,#2a6a64)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0, color: "#fff" }}>
                   {npc.name.slice(0, 1)}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: "calc(13px*var(--app-text-scale,1))", fontWeight: 600 }}>{npc.name}</div>
-                  <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(255,255,255,0.4)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "var(--c-text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {npc.persona.split("\n")[1]?.replace(/^(性别|职业\/身分|外貌|MBTI\/性格|年龄)\s*[:：]?\s*/, "") || npc.persona.split("\n").slice(1).join(" ").slice(0, 60) || "已按原文生成"}
                   </div>
                 </div>
-                <span style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(140,220,160,0.8)" }}>✓ 已入联系人</span>
+                <span style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(22,122,69,0.9)" }}>✓ 已入联系人</span>
               </div>
             ))
           ) : (
-            <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(255,255,255,0.3)", lineHeight: 1.7 }}>
+            <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "var(--c-icon)", lineHeight: 1.7 }}>
               首次进入游戏时，引擎将按剧本原文自动生成 NPC 角色卡并加入联系人。
             </div>
           )}
@@ -451,7 +451,7 @@ function SetupScreen({ scriptId, onBack, onClose, onStart, onOpenSettings }: { s
           <div style={S.label}>你的面具（你是谁）</div>
           {identities.length === 0 ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(255,255,255,0.3)", lineHeight: 1.7 }}>
+              <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "var(--c-icon)", lineHeight: 1.7 }}>
                 首次进入需要先创建一个面具（你在剧本里的身份）。点击下方前往系统设置创建，完成后返回即可在此选择。
               </div>
               <button onClick={onOpenSettings} style={S_primaryBtn}>
@@ -465,18 +465,18 @@ function SetupScreen({ scriptId, onBack, onClose, onStart, onOpenSettings }: { s
                 <div
                   key={id.id}
                   onClick={() => pickMask(id.id)}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, background: selected ? "rgba(140,220,160,0.08)" : "rgba(0,0,0,0.3)", border: selected ? "1px solid rgba(140,220,160,0.5)" : "1px solid transparent", marginBottom: 6, cursor: "pointer" }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, background: selected ? "rgba(22,122,69,0.08)" : "var(--c-input)", border: selected ? "1px solid rgba(22,122,69,0.45)" : "1px solid transparent", marginBottom: 6, cursor: "pointer" }}
                 >
                   {id.avatarUrl ? (
                     <img src={id.avatarUrl} alt={id.name} style={{ width: 36, height: 36, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
                   ) : (
-                    <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg,#7B6BB8,#5a4a90)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0 }}>{id.name.slice(0, 1)}</div>
+                    <div style={{ width: 36, height: 36, borderRadius: "50%", background: "linear-gradient(135deg,#7B6BB8,#5a4a90)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 16, flexShrink: 0, color: "#fff" }}>{id.name.slice(0, 1)}</div>
                   )}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: "calc(13px*var(--app-text-scale,1))", fontWeight: 600 }}>{id.name}</div>
-                    <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(255,255,255,0.4)" }}>{id.gender || ""}{id.age ? ` · ${id.age}岁` : ""}{id.occupation ? ` · ${id.occupation}` : ""}</div>
+                    <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "var(--c-text)" }}>{id.gender || ""}{id.age ? ` · ${id.age}岁` : ""}{id.occupation ? ` · ${id.occupation}` : ""}</div>
                   </div>
-                  {selected && <Check size={16} color="rgba(140,220,160,0.9)" />}
+                  {selected && <Check size={16} color="rgba(22,122,69,0.9)" />}
                 </div>
               );
             })
@@ -487,31 +487,31 @@ function SetupScreen({ scriptId, onBack, onClose, onStart, onOpenSettings }: { s
         <div style={S.card}>
           <div style={S.label}>你的角色卡（剧本留给主控填写的部分）</div>
           {cardDrafting ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 8, color: "rgba(255,255,255,0.5)", fontSize: "calc(12px*var(--app-text-scale,1))" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, color: "var(--c-text)", fontSize: "calc(12px*var(--app-text-scale,1))" }}>
               <LoaderCircle size={15} style={{ animation: "spin 1s linear infinite" }} /> AI 正在按剧本原文提取需要你填写的字段…
             </div>
           ) : !script.playerCard || script.playerCard.status === "none" ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(255,255,255,0.3)", lineHeight: 1.7 }}>
+              <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "var(--c-icon)", lineHeight: 1.7 }}>
                 开局前先填好你在剧本里的身份。AI 会读一遍剧本原文，列出所有需要你填写的字段（剧本已给出的值会自动预填），你逐项确认后才会开始游戏。
               </div>
               <button onClick={handleDraftCard} disabled={!npcReady} style={npcReady ? S_primaryBtn : { ...S_primaryBtn, opacity: 0.4, cursor: "not-allowed" }}>
                 AI 生成角色卡草稿
               </button>
-              {!npcReady && <div style={{ fontSize: "calc(10.5px*var(--app-text-scale,1))", color: "rgba(255,180,120,0.7)" }}>请先生成 NPC 角色卡</div>}
+              {!npcReady && <div style={{ fontSize: "calc(10.5px*var(--app-text-scale,1))", color: "rgba(176,110,30,0.85)" }}>请先生成 NPC 角色卡</div>}
             </div>
           ) : script.playerCard.status === "drafted" ? (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {script.playerCard.fields.length === 0 ? (
-                <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(255,255,255,0.35)", lineHeight: 1.7 }}>
+                <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "var(--c-text)", lineHeight: 1.7 }}>
                   本剧本没有检测到需要你预填的字段，可直接确认进入游戏。
                 </div>
               ) : (
                 draftFields.map((f, i) => (
                   <div key={f.label + i}>
-                    <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(200,160,100,0.75)", marginBottom: 3 }}>
+                    <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(150,112,52,0.85)", marginBottom: 3 }}>
                       {f.label}
-                      {f.hint && <span style={{ color: "rgba(255,255,255,0.28)", marginLeft: 6 }}>{f.hint}</span>}
+                      {f.hint && <span style={{ color: "var(--c-icon)", marginLeft: 6 }}>{f.hint}</span>}
                     </div>
                     <input
                       value={f.value}
@@ -526,7 +526,7 @@ function SetupScreen({ scriptId, onBack, onClose, onStart, onOpenSettings }: { s
                   </div>
                 ))
               )}
-              {cardError && <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(255,140,120,0.9)" }}>{cardError}</div>}
+              {cardError && <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(178,52,37,0.95)" }}>{cardError}</div>}
               <div style={{ display: "flex", gap: 8 }}>
                 <button onClick={handleConfirmCard} style={S_primaryBtn}>✓ 确认角色卡，完成准备</button>
                 <button onClick={handleDraftCard} style={S_ghostBtn}>重新生成草稿</button>
@@ -536,11 +536,11 @@ function SetupScreen({ scriptId, onBack, onClose, onStart, onOpenSettings }: { s
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {script.playerCard.fields.map(f => (
                 <div key={f.label} style={{ display: "flex", gap: 8, fontSize: "calc(12px*var(--app-text-scale,1))", lineHeight: 1.6 }}>
-                  <span style={{ color: "rgba(200,160,100,0.7)", flexShrink: 0 }}>{f.label}</span>
-                  <span style={{ color: "rgba(255,255,255,0.75)", wordBreak: "break-all" }}>{f.value.trim() || "（留白）"}</span>
+                  <span style={{ color: "rgba(150,112,52,0.85)", flexShrink: 0 }}>{f.label}</span>
+                  <span style={{ color: "var(--c-text-title)", wordBreak: "break-all" }}>{f.value.trim() || "（留白）"}</span>
                 </div>
               ))}
-              <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(140,220,160,0.8)" }}>✓ 已确认，开局后 DM 直接采用</div>
+              <div style={{ fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(22,122,69,0.9)" }}>✓ 已确认，开局后 DM 直接采用</div>
               <button onClick={handleEditCard} style={S_ghostBtn}>重新编辑</button>
             </div>
           )}
@@ -571,31 +571,31 @@ function SetupScreen({ scriptId, onBack, onClose, onStart, onOpenSettings }: { s
 }
 
 const S_primaryBtn: React.CSSProperties = {
-  width: "100%", padding: "14px 0", borderRadius: 10, border: "none", background: "rgba(200,160,100,0.2)", color: "#e8d0a0",
+  width: "100%", padding: "14px 0", borderRadius: 10, border: "none", background: "rgba(176,136,64,0.14)", color: "#8a6a2e",
   fontSize: "calc(15px*var(--app-text-scale,1))", fontWeight: 500, letterSpacing: "0.1em", cursor: "pointer", fontFamily: "inherit",
 };
 
 const S_readyBtn: React.CSSProperties = {
   ...S_primaryBtn,
-  background: "rgba(140,220,160,0.25)", color: "#c8f0d0",
+  background: "rgba(22,122,69,0.14)", color: "#1f7a4a",
 };
 
 const S_ghostBtn: React.CSSProperties = {
-  padding: "12px 14px", borderRadius: 10, border: "1px solid rgba(255,255,255,0.15)", background: "transparent", color: "rgba(255,255,255,0.6)",
+  padding: "12px 14px", borderRadius: 10, border: "1px solid var(--c-card-border)", background: "transparent", color: "var(--c-text)",
   fontSize: "calc(12px*var(--app-text-scale,1))", cursor: "pointer", fontFamily: "inherit", whiteSpace: "nowrap",
 };
 
 const S_cardInput: React.CSSProperties = {
-  width: "100%", boxSizing: "border-box", padding: "8px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.12)",
-  background: "rgba(0,0,0,0.3)", color: "#e0dcd5", fontSize: "calc(12.5px*var(--app-text-scale,1))", outline: "none", fontFamily: "inherit",
+  width: "100%", boxSizing: "border-box", padding: "8px 10px", borderRadius: 8, border: "1px solid var(--c-card-border)",
+  background: "var(--c-input)", color: "var(--c-text-title)", fontSize: "calc(12.5px*var(--app-text-scale,1))", outline: "none", fontFamily: "inherit",
 };
 
 function BindRow({ ok, label, value }: { ok: boolean; label: string; value: string }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "calc(12px*var(--app-text-scale,1))" }}>
-      <span style={{ color: ok ? "rgba(140,220,160,0.8)" : "rgba(255,180,120,0.8)", width: 18, textAlign: "center" }}>{ok ? "✓" : "…"}</span>
-      <span style={{ color: "rgba(255,255,255,0.5)", width: 72, flexShrink: 0 }}>{label}</span>
-      <span style={{ color: "rgba(255,255,255,0.7)", fontFamily: "monospace", fontSize: "calc(11px*var(--app-text-scale,1))" }}>{value}</span>
+      <span style={{ color: ok ? "rgba(22,122,69,0.9)" : "rgba(176,110,30,0.9)", width: 18, textAlign: "center" }}>{ok ? "✓" : "…"}</span>
+      <span style={{ color: "var(--c-text)", width: 72, flexShrink: 0 }}>{label}</span>
+      <span style={{ color: "var(--c-text-title)", fontFamily: "monospace", fontSize: "calc(11px*var(--app-text-scale,1))" }}>{value}</span>
     </div>
   );
 }
@@ -829,12 +829,12 @@ function PlayingScreen({ scriptId, onBack, onClose, fontScale, onFontScale }: { 
           </div>
         )}
         {error && (
-          <div style={{ margin: "8px 0", padding: "10px 12px", borderRadius: 8, background: "rgba(255,100,80,0.08)", border: "1px solid rgba(255,100,80,0.3)", color: "rgba(255,140,120,0.95)", fontSize: "calc(12px*var(--app-text-scale,1))" }}>
+          <div style={{ margin: "8px 0", padding: "10px 12px", borderRadius: 8, background: "rgba(214,69,49,0.06)", border: "1px solid rgba(214,69,49,0.3)", color: "rgba(178,52,37,0.95)", fontSize: "calc(12px*var(--app-text-scale,1))" }}>
             {error}
             {messages.length === 0 && (
               <button
                 onClick={() => { setError(null); startOpening(); }}
-                style={{ display: "block", marginTop: 8, padding: "6px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.06)", color: "var(--c-text-title)", fontSize: "calc(12px*var(--app-text-scale,1))", cursor: "pointer", fontFamily: "inherit" }}
+                style={{ display: "block", marginTop: 8, padding: "6px 14px", borderRadius: 8, border: "1px solid var(--c-card-border)", background: "var(--c-input)", color: "var(--c-text-title)", fontSize: "calc(12px*var(--app-text-scale,1))", cursor: "pointer", fontFamily: "inherit" }}
               >
                 重试开场生成
               </button>
@@ -845,7 +845,7 @@ function PlayingScreen({ scriptId, onBack, onClose, fontScale, onFontScale }: { 
 
       {/* 真实骰点播报（D20 等判定由代码层真掷，非 AI 嘴上说） */}
       {currentDice && !generating && (
-        <div style={{ padding: "4px 14px 2px", fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(255,210,140,0.92)", letterSpacing: "0.05em" }}>
+        <div style={{ padding: "4px 14px 2px", fontSize: "calc(11px*var(--app-text-scale,1))", color: "rgba(170,120,20,0.9)", letterSpacing: "0.05em" }}>
           🎲 系统真实掷骰：{currentDice.label} = <b>{currentDice.value}</b>
         </div>
       )}
@@ -1033,7 +1033,7 @@ function ScriptHubMenu({ fontScale, onFontScale, onClose, actions }: {
             style={{
               display: "block", width: "100%", padding: "12px 16px", border: "none", background: "transparent",
               textAlign: "left", fontSize: "calc(13px*var(--app-text-scale,1))", cursor: "pointer", fontFamily: "inherit",
-              color: a.danger ? "rgba(255,100,80,0.95)" : "var(--c-text-title)",
+              color: a.danger ? "rgba(200,60,45,0.95)" : "var(--c-text-title)",
             }}
           >{a.label}</button>
         ))}
@@ -1064,16 +1064,16 @@ function StatusDivider({ notes }: { notes: string[] }) {
           padding: "6px 0", display: "flex", alignItems: "center", gap: 10, fontFamily: "inherit",
         }}
       >
-        <span style={{ flex: 1, height: 1, background: "linear-gradient(90deg, transparent, rgba(110,90,180,0.45), rgba(180,140,220,0.7), rgba(110,90,180,0.45), transparent)" }} />
+        <span style={{ flex: 1, height: 1, background: "linear-gradient(90deg, transparent, rgba(122,90,190,0.35), rgba(140,105,205,0.65), rgba(122,90,190,0.35), transparent)" }} />
         <span style={{
-          fontSize: "calc(13px*var(--app-text-scale,1))", lineHeight: 1, color: "rgba(150,120,210,0.9)",
-          textShadow: "0 0 8px rgba(150,120,210,0.8), 0 0 16px rgba(150,120,210,0.4)",
+          fontSize: "calc(13px*var(--app-text-scale,1))", lineHeight: 1, color: "rgba(122,90,190,0.95)",
+          textShadow: "none",
           transform: open ? "rotate(90deg)" : undefined,
           transition: "transform 0.25s ease",
         }}>
           ✦
         </span>
-        <span style={{ flex: 1, height: 1, background: "linear-gradient(90deg, transparent, rgba(110,90,180,0.45), rgba(180,140,220,0.7), rgba(110,90,180,0.45), transparent)" }} />
+        <span style={{ flex: 1, height: 1, background: "linear-gradient(90deg, transparent, rgba(122,90,190,0.35), rgba(140,105,205,0.65), rgba(122,90,190,0.35), transparent)" }} />
       </button>
 
       {open && (
