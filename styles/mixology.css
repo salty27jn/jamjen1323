@@ -1279,6 +1279,14 @@
     overflow-y: auto;
     overflow-x: hidden;
     padding: 6px 18px 0;
+    transition: opacity 0.18s ease;
+}
+
+/* 入场幕布：头几百毫秒里沙盒 iframe 连着报高、内容反复长高，
+   这段时间不给看——每次报高都在幕后重新钉底，揭幕时已停在正确落点 */
+.mix-game-scroll[data-entering="true"] {
+    opacity: 0;
+    transition: none;
 }
 
 .mix-game-scroll::after {

@@ -4,14 +4,14 @@
 // 玩家右侧气泡、小票全宽卡；全程无任何标签徽章，保沉浸。
 // 装饰材料的 CSS 以 <style> 注入本画面容器（认 .mix-* 官方语义类）。
 
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { ChevronLeft, Copy, History, MoreHorizontal, Pencil, Plus, RotateCcw, Send, Sun, WandSparkles, X } from "lucide-react";
 import { continueMix, editMixTurn, generateMixReply, mixTurnRawText, refreshMixOpening, regenerateMixTail, rerollMixReply, runMixSessionEnd, truncateMixAfterTurn } from "@/lib/mixology/engine";
 import { getMixMaterial, getMixSession, listMixPickables, MIX_CABINET_UPDATED_EVENT, resolveMixRecipeMaterials, saveMixSession } from "@/lib/mixology/storage";
 import { applyMixMacros, MIX_DEFAULT_USER_NAME } from "@/lib/mixology/assembler";
 import { buildMixConditionContext, pickActiveMixMaterials } from "@/lib/mixology/state";
 import { scopeMixCss } from "@/lib/mixology/css-scope";
-import { MIX_KIND_LABELS, MIX_SLOT_MAX, MIX_SLOT_ORDER, mixEncoreRenderHtml, mixPanelLayoutOf, mixSlotEntries, mixTurnEncoreBlocks, mixTurnTicketBlocks, type MixCharacterCard, type MixFilterRule, type MixMaterialKind, type MixMechanismMaterial, type MixPanelLayout, type MixSession, type MixSlotEntry, type MixState, type MixTicketMaterial, type MixTurn } from "@/lib/mixology/types";
+import { MIX_KIND_LABELS, MIX_SLOT_ORDER, mixEncoreRenderHtml, mixPanelLayoutOf, mixSlotEntries, mixTurnEncoreBlocks, mixTurnTicketBlocks, type MixCharacterCard, type MixFilterRule, type MixMaterialKind, type MixMechanismMaterial, type MixPanelLayout, type MixSession, type MixSlotEntry, type MixState, type MixTicketMaterial, type MixTurn } from "@/lib/mixology/types";
 import { applyMixFilterRules, mixStreamText } from "@/lib/mixology/prose";
 import { MixProseView } from "./prose-view";
 import { MixRichText } from "./rich-text";
@@ -20,9 +20,6 @@ import { MixTicketFrame } from "./ticket-frame";
 import { MixMechanismPanel } from "./mechanism-panel";
 
 /** 当前真正挂着的对局：严格模式的重复挂载靠它区分「真退出」与「假卸载」 */
-/** 同时活动的常驻界面上限：每件一个 iframe，手机上多开吃内存，屏幕也摆不下 */
-const MIX_PANEL_MAX = 3;
-
 const liveMixGames = new Set<string>();
 
 type GameProps = {
@@ -129,6 +126,38 @@ export function MixologyGame({ sessionId, onBack, onToast }: GameProps) {
     const liveFrameRef = useRef(0);
     const busyRef = useRef(false);
     const [editing, setEditing] = useState<{ id: string; draft: string } | null>(null);
+    /**
+     * 编辑弹层的键盘适配（iOS）：弹层高、输入框更高，键盘一出 WebKit 会滚动整页
+     * 去追光标，把弹层标题顶出屏幕（偶发，取决于光标位置与时序）。两手处理：
+     * ① 给遮罩垫 padding-bottom = 键盘高度，弹层整体抬到键盘上方（78% 上限
+     *    按剩余高度算，整个弹层都在可视区里，iOS 就没有追光标的理由）；
+     * ② 页面还是被蹭走的话（visualViewport 偏移/window 滚动），立刻拉回。
+     */
+    const editMaskRef = useRef<HTMLDivElement | null>(null);
+    useEffect(() => {
+        if (!editing || typeof window === "undefined") return;
+        const vv = window.visualViewport;
+        let raf = 0;
+        const sync = () => {
+            raf = 0;
+            const inset = vv ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0;
+            const mask = editMaskRef.current;
+            if (mask) mask.style.paddingBottom = inset > 40 ? `${inset}px` : "";
+            if (window.scrollY || (vv && vv.offsetTop > 1)) window.scrollTo(0, 0);
+        };
+        const request = () => { if (!raf) raf = requestAnimationFrame(sync); };
+        sync();
+        vv?.addEventListener("resize", request);
+        vv?.addEventListener("scroll", request);
+        window.addEventListener("scroll", request);
+        return () => {
+            if (raf) cancelAnimationFrame(raf);
+            vv?.removeEventListener("resize", request);
+            vv?.removeEventListener("scroll", request);
+            window.removeEventListener("scroll", request);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- 只关心开/关，别在每次敲字时重挂监听
+    }, [Boolean(editing)]);
     const [confirm, setConfirm] = useState<{ type: "rewind" | "edit"; turnId: string } | null>(null);
     const [recipeOpen, setRecipeOpen] = useState(false);
     const [slotPick, setSlotPick] = useState<MixMaterialKind | null>(null);
@@ -220,7 +249,8 @@ export function MixologyGame({ sessionId, onBack, onToast }: GameProps) {
 
     /**
      * 条件命中、且写了界面的机括：这些是要常驻在对局画面上的界面。
-     * 上限 3 件——每件一个 iframe，手机上多开吃内存。
+     * 不设数量上限——每件一个 iframe，多开吃内存是玩家自己的选择，
+     * 真糊满屏幕还有「一键收起」的逃生口。
      * 摆放取材料自己写的那份；玩家在这一局里拖动过的，以拖过的为准。
      */
     const panels = useMemo(() => {
@@ -235,8 +265,7 @@ export function MixologyGame({ sessionId, onBack, onToast }: GameProps) {
                 const moved = session.panelBox?.[material.id];
                 return { material, layout: moved ? { ...base, ...moved } : base };
             })
-            .filter((item): item is { material: MixMechanismMaterial; layout: MixPanelLayout } => item !== null)
-            .slice(0, MIX_PANEL_MAX);
+            .filter((item): item is { material: MixMechanismMaterial; layout: MixPanelLayout } => item !== null);
     }, [session, cabinetTick]);
 
     /**
@@ -295,11 +324,15 @@ export function MixologyGame({ sessionId, onBack, onToast }: GameProps) {
         return vars as CSSProperties;
     }, [session?.state]);
 
+    /** 上一次 scroll 事件时的位置：撒手判定靠它识别滚动方向 */
+    const lastTopRef = useRef(0);
+
     /** 按当前落点滚一次 */
     const applyStick = useCallback(() => {
         const el = scrollRef.current;
         if (!el || stickRef.current === "free") return;
         el.scrollTop = stickRef.current === "top" ? 0 : el.scrollHeight;
+        lastTopRef.current = el.scrollTop;
     }, []);
 
     /**
@@ -307,11 +340,23 @@ export function MixologyGame({ sessionId, onBack, onToast }: GameProps) {
      * 只认 sessionId——定完就撒手，后面翻页（free）和发言（bottom）都能改它，这里不再回头覆盖。
      * 以前这个 effect 还挂着 busy 和 turns.length：一发言 busy 先翻 true，而用户那一轮要等
      * 落杯前钩子跑完才落库，这一拍读到的还是「没人开过口」，于是把人拽回了扉页顶上。
+     *
+     * 用 useLayoutEffect 在首帧绘制前就把落点钉好，配合入场幕布（entering）：
+     * 滚动区里的小票/小剧场/画布 iframe 都是异步量高的，头几百毫秒内容会连着长高几次，
+     * 当着用户的面就是「点进去闪好几下」。幕布期间不可见、每次报高都在幕后重新落位，
+     * 揭幕那一刻已经停在正确位置。
      */
-    useEffect(() => {
+    const [entering, setEntering] = useState(true);
+    useLayoutEffect(() => {
+        setEntering(true);
         const entered = getMixSession(sessionId);
         stickRef.current = (entered?.turns ?? []).some((turn) => turn.role === "user") ? "bottom" : "top";
         applyStick();
+        const timer = window.setTimeout(() => {
+            applyStick();
+            setEntering(false);
+        }, 400);
+        return () => window.clearTimeout(timer);
     }, [sessionId, applyStick]);
 
     /** 内容长高了（新一轮到达、生成态切换、流式又写出一段）按当前落点再落一次 */
@@ -341,15 +386,36 @@ export function MixologyGame({ sessionId, onBack, onToast }: GameProps) {
         return () => window.removeEventListener("message", onFrameResize);
     }, [applyStick]);
 
-    /** 用户自己翻页了就撒手，别在画布撑高时把他拽回去 */
+    /**
+     * 用户自己翻页了就撒手，别在画布撑高时把他拽回去。
+     * 「翻页」只认真实手势（滚轮/触摸/按压），不认 scroll 事件本身——
+     * iframe 报高会让 scrollHeight 在钉底之后又变大，等 scroll 回调执行时
+     * gapBottom 已经是新长出来的那截，按距离判定会把这误当成用户翻走，
+     * 从此不再跟底，人就停在半路。没有手势的偏离一律视为内容重排，立刻拉回。
+     */
+    const gestureAtRef = useRef(0);
+    const markGesture = useCallback(() => { gestureAtRef.current = Date.now(); }, []);
     const handleScroll = useCallback(() => {
         const el = scrollRef.current;
-        if (!el || stickRef.current === "free") return;
+        if (!el) return;
+        const prevTop = lastTopRef.current;
+        lastTopRef.current = el.scrollTop;
+        if (stickRef.current === "free") return;
         const gapTop = el.scrollTop;
         const gapBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
         const stuck = stickRef.current === "top" ? gapTop <= 8 : gapBottom <= 8;
-        if (!stuck) stickRef.current = "free";
-    }, []);
+        if (stuck) return;
+        // 用户意图两条通路缺一不可：
+        // ① 手势（滚轮/触摸/按压，1.6s 覆盖惯性尾巴）——但手指落在小票/小剧场/画布的
+        //    iframe 上时触摸事件被沙盒吃掉、不冒泡，外层什么都收不到；
+        // ② 方向启发兜住 ① 的盲区：贴底时 scrollTop 变小（在往上挪）、贴顶时变大，
+        //    只有用户滚动才会朝"背离锚点"的方向动——内容重排只会把落点甩远，不会反向。
+        const movedAway = stickRef.current === "bottom"
+            ? el.scrollTop < prevTop - 1
+            : el.scrollTop > prevTop + 1;
+        if (movedAway || Date.now() - gestureAtRef.current < 1600) stickRef.current = "free";
+        else applyStick();
+    }, [applyStick]);
 
     useEffect(() => () => abortRef.current?.abort(), []);
 
@@ -572,10 +638,6 @@ export function MixologyGame({ sessionId, onBack, onToast }: GameProps) {
             onToast("已移出，下一轮生效。");
             return;
         }
-        if (entries.length >= MIX_SLOT_MAX) {
-            onToast(`一格最多放 ${MIX_SLOT_MAX} 件，先移出一件。`);
-            return;
-        }
         // 追加在末尾：叠放是按顺序依次生效的，新加的排在已有的后面
         writeSlot(kind, [...entries, { materialId }]);
         onToast("已加入，下一轮生效。");
@@ -689,7 +751,16 @@ export function MixologyGame({ sessionId, onBack, onToast }: GameProps) {
                 </>
             ) : null}
             <StateBar state={session.state ?? {}} />
-            <div className="mix-game-scroll" ref={scrollRef} onScroll={handleScroll}>
+            <div
+                className="mix-game-scroll"
+                ref={scrollRef}
+                data-entering={entering ? "true" : undefined}
+                onScroll={handleScroll}
+                onWheel={markGesture}
+                onTouchStart={markGesture}
+                onTouchMove={markGesture}
+                onPointerDown={markGesture}
+            >
                 {assets.canvasHtml ? (
                     <div className="mix-game-canvas">
                         <MixRichText text={assets.canvasHtml} />
@@ -880,7 +951,7 @@ export function MixologyGame({ sessionId, onBack, onToast }: GameProps) {
                     <div className="mix-sheet" onClick={(e) => e.stopPropagation()}>
                         <div className="mix-sheet-head">
                             <div className="mix-sheet-title">
-                                {MIX_KIND_LABELS[slotPick]} · 已放 {mixSlotEntries(session.recipe.slots, slotPick).length}/{MIX_SLOT_MAX}
+                                {MIX_KIND_LABELS[slotPick]} · 已放 {mixSlotEntries(session.recipe.slots, slotPick).length} 件
                             </div>
                             <button type="button" className="mix-icon-btn" onClick={() => setSlotPick(null)} aria-label="关闭"><X size={18} /></button>
                         </div>
@@ -924,7 +995,7 @@ export function MixologyGame({ sessionId, onBack, onToast }: GameProps) {
             {editing ? (() => {
                 const editingTurn = session.turns.find((t) => t.id === editing.id);
                 return (
-                    <div className="mix-sheet-mask" onClick={() => setEditing(null)}>
+                    <div className="mix-sheet-mask" ref={editMaskRef} onClick={() => setEditing(null)}>
                         <div className="mix-sheet" onClick={(e) => e.stopPropagation()}>
                             <div className="mix-sheet-head">
                                 <div className="mix-sheet-title">编辑消息</div>

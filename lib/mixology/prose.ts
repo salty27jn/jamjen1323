@@ -103,21 +103,19 @@ function pullFamily(text: string, tags: TagFamily): { text: string; blocks: MixE
     return { text, blocks };
 }
 
-/** 从 AI 原文剥离状态栏与小剧场块；漏写闭合（生成截断）时走行首开标签兜底 */
 /**
- * 流式过程中能安全显示的那一段正文。
- * 状态栏 / 小剧场块交给 extractMixBlocks 兜住——它认得"只开没关"的块，
- * 半张状态栏不会漏到正文里。机括的标记行（〔记〕这类）要等出杯后才被摘掉，
- * 流式里会先闪一下再消失，所以末尾那一行只要以 〔 或 [ 开头就先不显示：
- * 它要么是块的开头，要么是标记行，两种最终都不属于正文。
+ * 流式过程中显示的内容：原文照流，不再扣块。
+ * 以前状态栏/小剧场块在流式里被整段扣住，模型写块的那几秒到十几秒界面一动不动，
+ * 用户以为卡死了（结尾写小剧场时最明显：正文流得好好的突然定住）。现在 raw
+ * 原样当正文流出来——先看到状态栏的键值行长出来、再是正文、最后小剧场逐行盖楼，
+ * 和模型的真实输出顺序一致；整轮落库那一刻各块自然换成正式的壳渲染。
+ * 只有机括的标记行（〔记〕这类，出杯后才被摘掉）仍在末尾行扣一下，免得闪现又消失。
  */
 export function mixStreamText(partial: string): string {
-    const lines = extractMixBlocks(String(partial ?? "")).text.split("\n");
-    // 从末尾往回剥：空行、以 〔 或 [ 开头的行都先不显示。
-    // 写完整的块已经被 extractMixBlocks 摘走了，还留在这儿的一定是没写完的。
+    const lines = String(partial ?? "").split("\n");
     while (lines.length) {
         const tail = lines[lines.length - 1].trim();
-        if (tail === "" || /^[〔[]/.test(tail)) { lines.pop(); continue; }
+        if (tail === "" || tail.startsWith("〔")) { lines.pop(); continue; }
         break;
     }
     return lines.join("\n");
