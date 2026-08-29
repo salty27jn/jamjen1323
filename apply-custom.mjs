@@ -442,6 +442,27 @@ const ENHANCEMENTS = [
     },
   },
   {
+    id: "builtin-preset.ts: moments_post 语言规则",
+    check: () => read("lib/builtin-preset.ts").includes("\\u3010\\u8bed\\u8a00\\u89c4\\u5219\\u3011"),
+    apply: () => {
+      const p = join(ROOT, "lib", "builtin-preset.ts");
+      let c = readFileSync(p, "utf8");
+      if (c.includes("\\u3010\\u8bed\\u8a00\\u89c4\\u5219\\u3011")) return;
+      const anchor = '{{chatBilingualInstruction}}",';
+      // 找到 moments_post 区域内的 chatBilingualInstruction（在 moments_post_instruction 标签内）
+      const momentsPostStart = c.indexOf("<moments_post_instruction>");
+      const momentsPostEnd = c.indexOf("</moments_post_instruction>");
+      if (momentsPostStart < 0 || momentsPostEnd < 0) throw new Error("moments_post_instruction 标签未找到");
+      const section = c.substring(momentsPostStart, momentsPostEnd);
+      const bilingualIdx = section.indexOf(anchor);
+      if (bilingualIdx < 0) throw new Error("moments_post 区域内 chatBilingualInstruction 未找到");
+      const insertPos = momentsPostStart + bilingualIdx + anchor.length;
+      const langRule = '\\n                    "\\u3010\\u8bed\\u8a00\\u89c4\\u5219\\u3011\\u4f60\\u8f93\\u51fa\\u7684\\u8bed\\u8a00\\u5fc5\\u987b\\u4e25\\u683c\\u8ddf\\u968f{{char}}\\u4eba\\u8bbe\\u4e2d\\u6307\\u5b9a\\u7684\\u6bcd\\u8bed\\u3002\\u5982\\u679c{{char}}\\u8bbe\\u5b9a\\u4e3a\\u82f1\\u8bed\\u6bcd\\u8bed\\uff0c\\u5219\\u6240\\u6709\\u5bf9\\u767d\\u5fc5\\u987b\\u7528\\u82f1\\u8bed\\uff1b\\u5982\\u679c\\u8bbe\\u5b9a\\u4e3a\\u65e5\\u8bed\\u6bcd\\u8bed\\uff0c\\u5219\\u6240\\u6709\\u5bf9\\u767d\\u5fc5\\u987b\\u7528\\u65e5\\u8bed\\u3002\\u4ec5\\u5728\\u89d2\\u8272\\u7684\\u5185\\u5fc3\\u72ec\\u767d\\u6216\\u52a8\\u4f5c\\u63cf\\u5199\\u4e2d\\u53ef\\u4f7f\\u7528\\u4e2d\\u6587\\uff08\\u7528\\u62ec\\u53f7\\u5305\\u88f9\\uff09\\u3002",\\n';
+      c = c.substring(0, insertPos) + langRule + c.substring(insertPos);
+      writeFileSync(p, c, "utf8");
+    },
+  },
+  {
     id: "character-time.ts: 英文时间格式",
     check: () => read("lib/character-time.ts").includes("Sunday"),
     apply: () => {
