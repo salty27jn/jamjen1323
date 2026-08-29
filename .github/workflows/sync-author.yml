@@ -1,10 +1,13 @@
-name: Sync author updates
+﻿name: Sync author updates
 
 on:
   workflow_dispatch: # 手动触发：GitHub 仓库页面 -> Actions -> Sync author updates -> Run workflow
+  schedule:
+    - cron: "0 0 * * *" # 每天北京时间早上 8 点（UTC 0:00）
 
 permissions:
   contents: write
+  issues: write
 
 jobs:
   sync:
