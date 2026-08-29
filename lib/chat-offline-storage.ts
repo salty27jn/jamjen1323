@@ -219,10 +219,10 @@ function stripXmlField(rawText: string, tag: string): string {
 }
 
 /** 从原始输出中提取指定标签包裹的思维链（仅当预设开启标签解析时调用）。
- *  默认标签 thinking 时兼容 thought。 */
+ *  默认标签 thinking 时兼容 thought / think（DeepSeek R1 系模型输出 <think>）。 */
 export function extractThinkingTag(rawText: string, tag?: string): string {
     const effective = (tag || "thinking").trim() || "thinking";
-    const tags = effective === "thinking" ? ["thinking", "thought"] : [effective];
+    const tags = effective === "thinking" ? ["thinking", "thought", "think"] : [effective];
     return extractXmlField(rawText.trim(), tags).trim();
 }
 

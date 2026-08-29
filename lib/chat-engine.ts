@@ -2047,6 +2047,13 @@ export async function generateOfflineChatCompletion(
     if (offlineTagEnabled) {
         const tagThinking = extractThinkingTag(rawOutput, thinkingTag);
         if (tagThinking) reasoning = tagThinking;
+        // 模型漏写 <content> 时 parseOfflineResponse 兜底把全文当正文，thinking 块会残留其中：
+        // 这里统一剥掉，避免思考过程既进思维链又出现在正文（默认标签 thinking 兼容 thought）
+        let cleanedContent = parsed.content;
+        for (const tag of (thinkingTag === "thinking" ? ["thinking", "thought", "think"] : [thinkingTag])) {
+            cleanedContent = stripOnlineThinkingTag(cleanedContent, tag);
+        }
+        parsed = { ...parsed, content: cleanedContent };
     }
 
     // 摘要缺失时自动补提：只带最后一轮上下文（系统提示 + 最后一条用户消息 + 本次输出），
