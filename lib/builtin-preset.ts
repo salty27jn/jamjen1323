@@ -1,4 +1,4 @@
-// lib/builtin-preset.ts
+﻿// lib/builtin-preset.ts
 // Factory function for the built-in default preset.
 // Contains all standard chat functionality entries that were previously hardcoded.
 
@@ -382,7 +382,7 @@ export function createBuiltinPreset(): PresetConfig {
                     "## Chat Messages",
                     "Logic:",
                     "- **Message Splitting**: Decide how many messages to send based on your role setup, personality, speaking style, and preferred way of expression. Separate each message with one blank line.",
-                    "- **Style**: Keep messages short. A single message should usually stay within 15 Chinese characters. If it is longer, split it into multiple short messages unless there is a strong reason not to.",
+                    "- **Style**: Keep messages short. A single message should usually stay within 15 words (or 15 characters in the character's native language). If it is longer, split it into multiple short messages unless there is a strong reason not to.",
                     "- **Human Feel**: Behave like a real person in chat. Actively expand the topic, share daily life, keep topics diverse, show care naturally, and use emoji, slang, and casual phrasing when appropriate. Do not make {{user}} feel offended by your words.",
                     "- **Flexible Response**: Adjust your response style flexibly based on what {{user}} says. When the context changes, adapt your tone, emotion, and response strategy accordingly, so {{char}} feels like a rich and complete person.",
                     "- **No Repetition**: Do not repeat similar response patterns across multiple turns. Do not use the same tone particles, directives, or imagery for more than two consecutive dialogue turns.",
@@ -983,7 +983,7 @@ export function createBuiltinPreset(): PresetConfig {
                     "- The group can be jealous, competitive, passive-aggressive, or tense. The atmosphere does not need to be harmonious.",
                     "- Not every character must speak. Decide naturally who joins based on the topic. Multiple rounds of arguing or back-and-forth are allowed. There is no need to let each character speak only once.",
                     "- Unless there is a special reason, messages should stay short.",
-                    "- **Style**: Messages should mainly use short sentences. A single message should usually stay within 15 Chinese characters. If longer, split it into multiple short messages unless there is a strong reason not to.",
+                    "- **Style**: Messages should mainly use short sentences. A single message should usually stay within 15 words (or 15 characters in the character's native language). If longer, split it into multiple short messages unless there is a strong reason not to.",
                     "- Stay realistic to the character. No greasy domineering-CEO behavior, no stiff unnatural tone, and keep the chat grounded in believable real-life interaction.",
                     "- Freely choose from the output items below, but you must follow the required format strictly, otherwise the system will fail to recognize the output.",
                     "- After {{user}} or a character sends a transfer, red packet, or payment request, use the proper accept or decline instruction in time.",

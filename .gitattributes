@@ -1,1 +1,7 @@
-styles/components.css whitespace=cr-at-eol
+﻿*.css whitespace=cr-at-eol
+lib/chat-storage.ts merge=ours
+lib/checkphone-settings.ts merge=ours
+lib/map-storage.ts merge=ours
+lib/moments-storage.ts merge=ours
+lib/reading-storage.ts merge=ours
+lib/xiaohongshu-types.ts merge=ours

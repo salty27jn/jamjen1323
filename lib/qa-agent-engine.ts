@@ -1,4 +1,4 @@
-import {
+﻿import {
     buildProviderRequest,
     nativeToolProtocolForConfig,
     parseProviderResponse,
@@ -99,7 +99,7 @@ async function streamQaProviderRequest(
     callbacks?: QaStreamCallbacks,
 ): Promise<{ content: string; reasoning: string }> {
     const llmAbort = new AbortController();
-    const llmTimeout = setTimeout(() => llmAbort.abort(), 500_000);
+    const llmTimeout = setTimeout(() => llmAbort.abort(), 180_000);
     const abortHandler = () => llmAbort.abort();
     if (options?.signal) {
         if (options.signal.aborted) llmAbort.abort();

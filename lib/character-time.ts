@@ -1,4 +1,4 @@
-export type CharacterTimeContext = {
+﻿export type CharacterTimeContext = {
   systemTime: string;
   systemWeekday: string;
   systemTimeZone: string;
@@ -14,7 +14,7 @@ export type GroupTimeMember = {
   timeZone?: string | null;
 };
 
-const WEEKDAYS = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"];
+const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 
 type DateParts = {
   year: string;
@@ -95,7 +95,7 @@ export function formatZonedChineseDateTime(date: Date, timeZone: string): string
 
 export function getZonedWeekday(date: Date, timeZone: string): string {
   try {
-    const label = new Intl.DateTimeFormat("zh-CN", { timeZone, weekday: "long" }).format(date);
+    const label = new Intl.DateTimeFormat("en-US", { timeZone, weekday: "long" }).format(date);
     return label || WEEKDAYS[0];
   } catch {
     return WEEKDAYS[date.getDay()];
@@ -127,7 +127,7 @@ export function buildCharacterTimeContext(timeZone?: string | null, now = new Da
       characterTime: "",
       characterWeekday: "",
       characterTimeZone: "",
-      timeContext: `当前系统时间：${systemTime}，${systemWeekday}`,
+      timeContext: `System time: ${systemTime} ${systemWeekday}`,
       hasDifference: false,
     };
   }
@@ -143,7 +143,7 @@ export function buildCharacterTimeContext(timeZone?: string | null, now = new Da
     characterTimeZone: normalizedTimeZone,
     timeContext: [
       `当前系统时间：${systemTime} ${systemTimeZone}，${systemWeekday}`,
-      `角色本地时间：${characterTime} ${normalizedTimeZone}，${characterWeekday}`,
+      `Character local time: ${characterTime} ${normalizedTimeZone} ${characterWeekday}`,
       "判断角色作息、问候、深夜/清晨/工作时间时，优先使用角色本地时间。",
     ].join("\n"),
     hasDifference: true,
@@ -170,7 +170,7 @@ export function buildGroupTimeContext(members: GroupTimeMember[], now = new Date
       characterTime: "",
       characterWeekday: "",
       characterTimeZone: "",
-      timeContext: `当前系统时间：${systemTime}，${systemWeekday}`,
+      timeContext: `System time: ${systemTime} ${systemWeekday}`,
       hasDifference: false,
     };
   }
