@@ -8,11 +8,11 @@
 // 真要写逻辑那是另一回事，不该在这里开口子。
 
 import { useState } from "react";
-import { ArrowDown, ArrowUp, Plus, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Pencil, Plus, Trash2, X } from "lucide-react";
 import { describeMixCondition } from "@/lib/mixology/state";
+import { isMixBuiltinId } from "@/lib/mixology/storage";
 import {
     MIX_KIND_LABELS,
-    MIX_SLOT_MAX,
     MIX_SLOT_STACK,
     type MixCompareOp,
     type MixCondition,
@@ -211,6 +211,8 @@ export function MixSlotEditor({
     varNames,
     onChange,
     onPickMore,
+    onEdit,
+    onCreate,
     onClose,
 }: {
     kind: MixMaterialKind;
@@ -221,11 +223,14 @@ export function MixSlotEditor({
     varNames: string[];
     onChange: (next: MixSlotEntry[]) => void;
     onPickMore: () => void;
+    /** 传了就在每条上出编辑入口（官方出厂件与别人上传的导入件除外，与酒柜同一条准入线）：对局里就地改材料用 */
+    onEdit?: (material: MixMaterial) => void;
+    /** 传了就在右上出「+」：不离开弹窗直接新建一件这一格的材料 */
+    onCreate?: () => void;
     onClose: () => void;
 }) {
     const [editingIndex, setEditingIndex] = useState<number | null>(null);
     const stackMode = MIX_SLOT_STACK[kind];
-    const full = entries.length >= MIX_SLOT_MAX;
 
     const move = (index: number, delta: number) => {
         const target = index + delta;
@@ -255,13 +260,18 @@ export function MixSlotEditor({
                 <div className="mix-sheet" onClick={(e) => e.stopPropagation()}>
                     <div className="mix-sheet-head">
                         <div className="mix-sheet-title">这一格的{MIX_KIND_LABELS[kind]}</div>
+                        {onCreate ? (
+                            <button type="button" className="mix-icon-btn" onClick={onCreate} aria-label={`自建一件${MIX_KIND_LABELS[kind]}`} title={`自建一件${MIX_KIND_LABELS[kind]}`}><Plus size={18} /></button>
+                        ) : null}
                         <button type="button" className="mix-icon-btn" onClick={onClose} aria-label="关闭"><X size={18} /></button>
                     </div>
                     <div className="mix-sheet-body">
                         <div className="mix-struct-note">
-                            {stackMode === "concat"
-                                ? "这一格里条件满足的会全部生效，按下面的顺序依次叠加。"
-                                : "这一格从上往下找，用第一件条件满足的；其余的这一轮不出场。"}
+                            {kind === "ticket" || kind === "encore"
+                                ? "这一格里条件满足的会全部上场，每件各自成块——一轮可以同时带多个状态栏/小剧场，按下面的顺序排列。"
+                                : stackMode === "concat"
+                                    ? "这一格里条件满足的会全部生效，按下面的顺序依次叠加。"
+                                    : "这一格从上往下找，用第一件条件满足的；其余的这一轮不出场。"}
                         </div>
 
                         <div className="mix-stack-list">
@@ -284,6 +294,9 @@ export function MixSlotEditor({
                                             </button>
                                         </div>
                                         <div className="mix-stack-ops">
+                                            {onEdit && material && !isMixBuiltinId(material.id) && !material.imported ? (
+                                                <button type="button" className="mix-icon-btn" onClick={() => onEdit(material)} aria-label="编辑"><Pencil size={15} /></button>
+                                            ) : null}
                                             <button type="button" className="mix-icon-btn" onClick={() => move(index, -1)} disabled={index === 0} aria-label="上移"><ArrowUp size={15} /></button>
                                             <button type="button" className="mix-icon-btn" onClick={() => move(index, 1)} disabled={index === entries.length - 1} aria-label="下移"><ArrowDown size={15} /></button>
                                             <button type="button" className="mix-icon-btn" onClick={() => remove(index)} aria-label="移除"><Trash2 size={15} /></button>
@@ -293,9 +306,9 @@ export function MixSlotEditor({
                             })}
                         </div>
 
-                        <button type="button" className="mix-stack-add" onClick={onPickMore} disabled={full}>
+                        <button type="button" className="mix-stack-add" onClick={onPickMore}>
                             <Plus size={16} />
-                            {full ? `一格最多放 ${MIX_SLOT_MAX} 件` : "再加一件"}
+                            再加一件
                         </button>
                     </div>
                 </div>

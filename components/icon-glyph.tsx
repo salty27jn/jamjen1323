@@ -1,4 +1,4 @@
-import type { IconId } from "@/lib/desktop-config";
+﻿import type { IconId } from "@/lib/desktop-config";
 import {
   mdiCompass,
   mdiCubeOutline,
@@ -36,6 +36,7 @@ import {
   mdiDatabase,
   mdiAccount,
   mdiHome,
+  mdiBridge,
   mdiHammerWrench,
   mdiGlassCocktail,
   mdiStorefrontOutline,
@@ -77,6 +78,7 @@ const MDI_PATHS: Record<IconId, string> = {
   characters: mdiAccount,
   dwelling: mdiHome,
   scripthub: mdiDramaMasks,
+  realitybridge: mdiBridge,
 };
 
 export function IconGlyph({ id, className }: IconGlyphProps) {
