@@ -8,6 +8,15 @@ import { loadCharacters } from "@/lib/character-storage";
 import { Character } from "@/lib/character-types";
 import { loadMomentPosts } from "@/lib/moments-storage";
 import {
+    loadCharacterWorldGroups,
+    getCurrentWorldId,
+    setCurrentWorldId,
+    CHARACTER_WORLDS_UPDATED_EVENT,
+    CURRENT_WORLD_CHANGED_EVENT,
+    DEFAULT_CHARACTER_WORLD_ID,
+    type CharacterWorldGroup,
+} from "@/lib/character-world-storage";
+import {
     getPendingFriendRequests,
     clearRequestsForCharacter,
     updateFriendRequestStatus,
@@ -56,6 +65,32 @@ export function ChatContactsList({ onCloseApp, onSelectSession, onSelectMascot, 
     const addFromCardRef = useRef(false);
     const mascotSettings = useSyncExternalStore(subscribeMascotSettings, getMascotSettingsSnapshot, getMascotSettingsSnapshot);
     const [mascotAvatarUrl, setMascotAvatarUrl] = useState(mascotSettings.avatarImage || DEFAULT_MASCOT_AVATAR);
+
+    // 按世界分区：角色页切世界 tab 时会广播 CURRENT_WORLD_CHANGED_EVENT，
+    // 这里同步读取同一个 key，联系人列表只展示当前世界的角色，其余世界的联系人临时“消失”。
+    const [worldGroups, setWorldGroups] = useState<CharacterWorldGroup[]>(() => loadCharacterWorldGroups());
+    const [currentWorldId, setCurrentWorldIdState] = useState<string>(() => getCurrentWorldId());
+    const [showWorldPicker, setShowWorldPicker] = useState(false);
+    useEffect(() => {
+        const reloadGroups = () => setWorldGroups(loadCharacterWorldGroups());
+        const reloadCurrent = () => setCurrentWorldIdState(getCurrentWorldId());
+        window.addEventListener(CHARACTER_WORLDS_UPDATED_EVENT, reloadGroups);
+        window.addEventListener(CURRENT_WORLD_CHANGED_EVENT, reloadCurrent);
+        return () => {
+            window.removeEventListener(CHARACTER_WORLDS_UPDATED_EVENT, reloadGroups);
+            window.removeEventListener(CURRENT_WORLD_CHANGED_EVENT, reloadCurrent);
+        };
+    }, []);
+    // 记忆的世界可能已被删除 → 回落默认世界
+    const safeWorldId = worldGroups.some(g => g.id === currentWorldId) ? currentWorldId : DEFAULT_CHARACTER_WORLD_ID;
+    const currentWorldGroup = worldGroups.find(g => g.id === safeWorldId) ?? null;
+    // 只有真正建立了多个世界（或默认世界之外还有内容）时才启用分区展示，
+    // 避免只有一个默认世界的用户平白多出一层过滤/按钮。
+    const worldFilterActive = worldGroups.length > 1;
+    const currentWorldMemberIds = useMemo(
+        () => new Set(currentWorldGroup?.memberIds ?? []),
+        [currentWorldGroup]
+    );
 
     const identity = useMemo(() => resolveUserIdentity(), []);
     const chars = useMemo(() => loadCharacters(), []);
@@ -130,9 +165,12 @@ export function ChatContactsList({ onCloseApp, onSelectSession, onSelectMascot, 
     /** Group contacts by pinyin initial */
     const { grouped, indexLetters } = useMemo(() => {
         const keyword = deferredContactFilter.trim().toLowerCase();
-        const filtered = keyword
-            ? contacts.filter(c => (c.char?.name || "").toLowerCase().includes(keyword))
+        const worldScoped = worldFilterActive
+            ? contacts.filter(c => c.char && currentWorldMemberIds.has(c.char.id))
             : contacts;
+        const filtered = keyword
+            ? worldScoped.filter(c => (c.char?.name || "").toLowerCase().includes(keyword))
+            : worldScoped;
         const map: Record<string, typeof contacts> = {};
         for (const c of filtered) {
             const letter = getInitial(c.char?.name || "");
@@ -145,8 +183,13 @@ export function ChatContactsList({ onCloseApp, onSelectSession, onSelectMascot, 
             return a.localeCompare(b);
         });
         return { grouped: map, indexLetters: sorted };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [contacts, deferredContactFilter]);
+    }, [contacts, deferredContactFilter, worldFilterActive, currentWorldMemberIds]);
+
+    // 新的朋友申请也按当前世界过滤：切到「2世界」时不该看见「1世界」角色发来的申请
+    const visiblePendingRequests = useMemo(() => {
+        if (!worldFilterActive) return pendingRequests;
+        return pendingRequests.filter(req => currentWorldMemberIds.has(req.characterId));
+    }, [pendingRequests, worldFilterActive, currentWorldMemberIds]);
 
     const handleAccept = async (req: FriendRequest) => {
         setIsProcessing(true);
@@ -209,6 +252,17 @@ export function ChatContactsList({ onCloseApp, onSelectSession, onSelectMascot, 
                 <div className="pt-5 pb-1">
                     <div className="flex items-center justify-between mb-4 mt-2">
                         <span className="ts-28 font-bold text-[var(--c-text-title)]">Contacts</span>
+                        {worldFilterActive && (
+                            <button
+                                type="button"
+                                className="ui-btn ui-btn-ghost ts-13"
+                                style={{ padding: "4px 10px", borderRadius: 999 }}
+                                onClick={() => setShowWorldPicker(true)}
+                                title="切换世界：只显示该世界下的联系人"
+                            >
+                                🌐 {currentWorldGroup?.name || "默认世界"}
+                            </button>
+                        )}
                     </div>
                     <div className="chat-search-bar">
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--c-icon)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
@@ -225,7 +279,7 @@ export function ChatContactsList({ onCloseApp, onSelectSession, onSelectMascot, 
                 <div className="mb-3 mt-3">
                     <div
                         className="minimal-list-item"
-                        onClick={() => pendingRequests.length > 0 && setShowRequestList(true)}
+                        onClick={() => visiblePendingRequests.length > 0 && setShowRequestList(true)}
                     >
                         <div className="w-[48px] h-[48px] rounded-full bg-[var(--c-action-blue,#246bfd)] flex items-center justify-center shrink-0">
                             <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
@@ -238,8 +292,8 @@ export function ChatContactsList({ onCloseApp, onSelectSession, onSelectMascot, 
                         <div className="flex-1 overflow-hidden h-[48px] flex flex-col justify-center">
                             <div className="ts-16 font-medium text-[var(--c-text-title)]">New Friends</div>
                         </div>
-                        {pendingRequests.length > 0 && (
-                            <div className="minimal-unread-count ml-auto shrink-0">{pendingRequests.length}</div>
+                        {visiblePendingRequests.length > 0 && (
+                            <div className="minimal-unread-count ml-auto shrink-0">{visiblePendingRequests.length}</div>
                         )}
                     </div>
                 </div>
@@ -276,8 +330,7 @@ export function ChatContactsList({ onCloseApp, onSelectSession, onSelectMascot, 
                                             key={c.id}
                                             onClick={() => {
                                                 const sess = createOrGetSession(char.id);
-                                                onSelectSession(sess);
-                                            }}
+                                                onSelectSession(sess);                                            }}
                                             className="minimal-list-item"
                                         >
                                             <div className="minimal-avatar-wrapper">
@@ -321,6 +374,43 @@ export function ChatContactsList({ onCloseApp, onSelectSession, onSelectMascot, 
                 )}
             </div>
 
+            {/* World Switcher Modal：与角色页的世界卷宗 tab 共用同一份状态 */}
+            {showWorldPicker && (
+                <div className="modal-overlay" onClick={() => setShowWorldPicker(false)}>
+                    <div className="modal-dialog freq-dialog" onClick={e => e.stopPropagation()}>
+                        <div className="ts-17 font-semibold text-center text-[var(--c-text-title)]">
+                            切换世界
+                        </div>
+                        <div className="freq-list">
+                            {worldGroups.map(group => {
+                                const active = group.id === safeWorldId;
+                                return (
+                                    <div
+                                        key={group.id}
+                                        className="freq-list-item"
+                                        onClick={() => {
+                                            setCurrentWorldIdState(group.id);
+                                            setCurrentWorldId(group.id);
+                                            setShowWorldPicker(false);
+                                        }}
+                                    >
+                                        <div className="flex-1 overflow-hidden">
+                                            <div className={`menu-label truncate ${active ? "font-bold" : "font-medium"}`}>
+                                                {active ? "✓ " : ""}{group.name}
+                                            </div>
+                                            <div className="ts-12 text-[var(--c-text)] truncate mt-[2px]">
+                                                {group.memberIds.length} 位角色
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                        <button onClick={() => setShowWorldPicker(false)} className="ui-btn ui-btn-ghost w-full">关闭</button>
+                    </div>
+                </div>
+            )}
+
             {/* Friend Request List Modal */}
             {showRequestList && (
                 <div className="modal-overlay" onClick={() => setShowRequestList(false)}>
@@ -328,13 +418,13 @@ export function ChatContactsList({ onCloseApp, onSelectSession, onSelectMascot, 
                         <div className="ts-17 font-semibold text-center text-[var(--c-text-title)]">
                             新的朋友
                         </div>
-                        {pendingRequests.length === 0 ? (
+                        {visiblePendingRequests.length === 0 ? (
                             <div className="py-6 text-center text-[var(--c-text)] ts-14">
                                 暂无好友申请
                             </div>
                         ) : (
                             <div className="freq-list">
-                                {pendingRequests.map(req => {
+                                {visiblePendingRequests.map(req => {
                                     const char = getCharForRequest(req);
                                     return (
                                         <div

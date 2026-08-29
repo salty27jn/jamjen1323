@@ -8,6 +8,11 @@ const CHARACTER_WORLDS_KEY = "ai_phone_character_worlds_v1";
 export const CHARACTER_WORLDS_UPDATED_EVENT = "character-worlds-updated";
 export const DEFAULT_CHARACTER_WORLD_ID = "world_default";
 
+// 当前激活的世界（全局，跨模块共享）：沿用角色页原有 key，保持存量数据零迁移。
+// 角色页的世界卷宗 tab 与微信通讯录都读写这一个 key，点其中一边即两边同步切换。
+const CURRENT_WORLD_KEY = "ai_phone_character_app_world_v1";
+export const CURRENT_WORLD_CHANGED_EVENT = "character-current-world-changed";
+
 registerKvMigration(CHARACTER_WORLDS_KEY);
 
 export type CharacterWorldRelation = {
@@ -249,6 +254,25 @@ export function deleteCharacterWorldRelation(groupId: string, relationId: string
             ? { ...group, relations: group.relations.filter(relation => relation.id !== relationId), updatedAt: now }
             : group
     ));
+}
+
+/** 读取当前激活的世界 id（未设置过则回落默认世界）。 */
+export function getCurrentWorldId(): string {
+    if (!isBrowser()) return DEFAULT_CHARACTER_WORLD_ID;
+    return kvGet(CURRENT_WORLD_KEY) || DEFAULT_CHARACTER_WORLD_ID;
+}
+
+/** 切换当前激活的世界：持久化 + 广播，所有监听方（角色页、微信通讯录…）据此同步刷新。 */
+export function setCurrentWorldId(worldId: string): void {
+    if (!isBrowser()) return;
+    kvSet(CURRENT_WORLD_KEY, worldId);
+    window.dispatchEvent(new CustomEvent(CURRENT_WORLD_CHANGED_EVENT, { detail: { worldId } }));
+}
+
+/** 某个世界当前的成员角色 id 集合（世界不存在则返回空集）。 */
+export function getCharacterIdsInWorld(worldId: string): Set<string> {
+    const group = loadCharacterWorldGroups().find(g => g.id === worldId);
+    return new Set(group?.memberIds ?? []);
 }
 
 export function getCharacterWorldGroupId(characterId: string): string | null {

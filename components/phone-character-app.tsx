@@ -28,7 +28,10 @@ import {
   moveCharacterToWorld,
   renameCharacterWorldGroup,
   updateCharacterWorldDescription,
+  getCurrentWorldId,
+  setCurrentWorldId as persistCurrentWorldId,
   CHARACTER_WORLDS_UPDATED_EVENT,
+  CURRENT_WORLD_CHANGED_EVENT,
   DEFAULT_CHARACTER_WORLD_ID,
   type CharacterWorldGroup,
 } from "@/lib/character-world-storage";
@@ -61,7 +64,6 @@ type CanvasRelationLine = { key: string; aId: string; bId: string; labels: strin
 
 // 每个世界一张画布：平移缩放记忆按世界分 key（默认世界沿用旧 key，存量零迁移）
 const PAN_STORAGE_BASE_KEY = 'ai_phone_canvas_pan_v2';
-const WORLD_TAB_KEY = 'ai_phone_character_app_world_v1';
 function worldPanKey(worldId: string): string {
   return worldId === DEFAULT_CHARACTER_WORLD_ID ? PAN_STORAGE_BASE_KEY : `${PAN_STORAGE_BASE_KEY}_${worldId}`;
 }
@@ -157,20 +159,24 @@ export function PhoneCharacterApp({ onClose, onNotice }: PhoneCharacterAppProps)
 
   // ── 世界卷宗：分组数据 + 当前打开的卷宗（持久记忆） ──
   const [worldGroups, setWorldGroups] = useState<CharacterWorldGroup[]>(() => loadCharacterWorldGroups());
-  const [currentWorldId, setCurrentWorldId] = useState<string>(() => {
-    const saved = typeof window !== "undefined" ? kvGet(WORLD_TAB_KEY) : null;
-    return saved || DEFAULT_CHARACTER_WORLD_ID;
-  });
+  const [currentWorldId, setCurrentWorldIdState] = useState<string>(() => getCurrentWorldId());
   useEffect(() => {
     const reload = () => setWorldGroups(loadCharacterWorldGroups());
+    // 微信通讯录那边如果也提供了切换入口，切换后这里要同步跟上（双向同步）
+    const reloadCurrent = () => setCurrentWorldIdState(getCurrentWorldId());
     window.addEventListener(CHARACTER_WORLDS_UPDATED_EVENT, reload);
-    return () => window.removeEventListener(CHARACTER_WORLDS_UPDATED_EVENT, reload);
+    window.addEventListener(CURRENT_WORLD_CHANGED_EVENT, reloadCurrent);
+    return () => {
+      window.removeEventListener(CHARACTER_WORLDS_UPDATED_EVENT, reload);
+      window.removeEventListener(CURRENT_WORLD_CHANGED_EVENT, reloadCurrent);
+    };
   }, []);
   // 记忆的世界可能已被删除 → 回落默认卷宗
   const safeWorldId = worldGroups.some(g => g.id === currentWorldId) ? currentWorldId : DEFAULT_CHARACTER_WORLD_ID;
   function selectWorldId(worldId: string) {
-    setCurrentWorldId(worldId);
-    try { kvSet(WORLD_TAB_KEY, worldId); } catch { }
+    setCurrentWorldIdState(worldId);
+    // 持久化 + 广播：微信通讯录等监听方会据此自动切到同一个世界
+    persistCurrentWorldId(worldId);
   }
 
   function updateChars(next: Character[]) {
@@ -474,7 +480,7 @@ function CharListView({
       const [aId, bId] = [relation.fromCharacterId, relation.toCharacterId].sort();
       const key = `${aId}__${bId}`;
       const existing = pairs.get(key);
-      if (existing) {
+      if (existing) {       
         if (!existing.labels.includes(relation.label)) existing.labels.push(relation.label);
       } else {
         pairs.set(key, { key, aId, bId, labels: [relation.label] });
@@ -957,7 +963,7 @@ function CharListView({
       );
     } else if (item.type === 'blue-note') {
       baseClass = "char-sticky-note";
-      extraAttrs = { "data-color": "blue" };
+      extraAttrs = { "data-color": "blue" };      
       content = (
         <>
           <div className="font-bold border-b border-[#999] pb-0.5 mb-1">ROUTING SLIP</div>
@@ -1440,7 +1446,7 @@ function CharListView({
                 transform: 'rotate(-1.5deg)'
               }}
             >
-              {/* tape decoration on top */}
+              {/* tape decoration on top */}           
               <div className="absolute rounded-[1px]" style={{ top: -6, left: '50%', marginLeft: -18, width: 36, height: 12, background: 'rgba(255,255,255,0.55)', transform: 'rotate(1deg)' }} />
               <div className="text-center ts-12 font-bold text-[#4a3f2f] mb-3 tracking-[1px] uppercase">Select Format</div>
               <div className="flex gap-1.5 justify-center">
@@ -1923,7 +1929,6 @@ function CharArchiveView({
       }, createVersion);
     }
   }
-
   function handleSave() {
     if (isExisting) {
       setShowSaveVersionConfirm(true);
@@ -2406,7 +2411,7 @@ function CharArchiveView({
                           onClick={() => setDeleteVersionTarget(version)}
                         >
                           删除
-                        </button>
+                        </button>               
                       </div>
                     </div>
                   ))}
@@ -2889,4 +2894,4 @@ function NpcGeneratorSheet({ characters, onClose, onConfirm }: {
       </div>
     </div>
   );
-}
+          }
