@@ -485,7 +485,36 @@ const ENHANCEMENTS = [
       writeFileSync(p, c, "utf8");
     },
   },
-];
+
+  // ── 世界隔离：社区贡献代码保护 ──
+  {
+    id: "chat-message-list.tsx: worldFilterActive",
+    check: () => read("components/chat/chat-message-list.tsx").includes("worldFilterActive"),
+    apply: () => {
+      // 该文件由 .gitattributes merge=ours 保护，此检查仅作验证
+      if (!read("components/chat/chat-message-list.tsx").includes("worldFilterActive")) {
+        throw new Error("chat-message-list.tsx 缺少世界隔离代码，请检查 .gitattributes");
+      }
+    },
+  },
+  {
+    id: "chat-contacts-list.tsx: worldFilterActive",
+    check: () => read("components/chat/chat-contacts-list.tsx").includes("worldFilterActive"),
+    apply: () => {
+      if (!read("components/chat/chat-contacts-list.tsx").includes("worldFilterActive")) {
+        throw new Error("chat-contacts-list.tsx 缺少世界隔离代码，请检查 .gitattributes");
+      }
+    },
+  },
+  {
+    id: "phone-character-app.tsx: WorldTabStrip",
+    check: () => read("components/phone-character-app.tsx").includes("WorldTabStrip"),
+    apply: () => {
+      if (!read("components/phone-character-app.tsx").includes("WorldTabStrip")) {
+        throw new Error("phone-character-app.tsx 缺少世界管理代码，请检查 .gitattributes");
+      }
+    },
+  },];
 
 let changed = false;
 let allApplied = true;

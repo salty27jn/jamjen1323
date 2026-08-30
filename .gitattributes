@@ -5,3 +5,6 @@ lib/map-storage.ts merge=ours
 lib/moments-storage.ts merge=ours
 lib/reading-storage.ts merge=ours
 lib/xiaohongshu-types.ts merge=ours
+components/phone-character-app.tsx merge=ours
+components/chat/chat-message-list.tsx merge=ours
+components/chat/chat-contacts-list.tsx merge=ours
