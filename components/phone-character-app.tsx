@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Character } from "@/lib/character-types";
@@ -59,10 +59,10 @@ import { normalizeTimeZone } from "@/lib/character-time";
 
 type ViewType = "list" | "detail";
 
-// 画布连线：与世界观关系同步——同一对角色间的多条关系合并为一条线，标签并列显示
+// 鐢诲竷杩炵嚎锛氫笌涓栫晫瑙傚叧绯诲悓姝モ€斺€斿悓涓€瀵硅鑹查棿鐨勫鏉″叧绯诲悎骞朵负涓€鏉＄嚎锛屾爣绛惧苟鍒楁樉绀?
 type CanvasRelationLine = { key: string; aId: string; bId: string; labels: string[] };
 
-// 每个世界一张画布：平移缩放记忆按世界分 key（默认世界沿用旧 key，存量零迁移）
+// 姣忎釜涓栫晫涓€寮犵敾甯冿細骞崇Щ缂╂斁璁板繂鎸変笘鐣屽垎 key锛堥粯璁や笘鐣屾部鐢ㄦ棫 key锛屽瓨閲忛浂杩佺Щ锛?
 const PAN_STORAGE_BASE_KEY = 'ai_phone_canvas_pan_v2';
 function worldPanKey(worldId: string): string {
   return worldId === DEFAULT_CHARACTER_WORLD_ID ? PAN_STORAGE_BASE_KEY : `${PAN_STORAGE_BASE_KEY}_${worldId}`;
@@ -157,12 +157,12 @@ export function PhoneCharacterApp({ onClose, onNotice }: PhoneCharacterAppProps)
   const [pendingPlacementChar, setPendingPlacementChar] = useState<Character | null>(null);
   const [pendingPolaroidStyle, setPendingPolaroidStyle] = useState<number>(0);
 
-  // ── 世界卷宗：分组数据 + 当前打开的卷宗（持久记忆） ──
+  // 鈹€鈹€ 涓栫晫鍗峰畻锛氬垎缁勬暟鎹?+ 褰撳墠鎵撳紑鐨勫嵎瀹楋紙鎸佷箙璁板繂锛?鈹€鈹€
   const [worldGroups, setWorldGroups] = useState<CharacterWorldGroup[]>(() => loadCharacterWorldGroups());
   const [currentWorldId, setCurrentWorldIdState] = useState<string>(() => getCurrentWorldId());
   useEffect(() => {
     const reload = () => setWorldGroups(loadCharacterWorldGroups());
-    // 微信通讯录那边如果也提供了切换入口，切换后这里要同步跟上（双向同步）
+    // 寰俊閫氳褰曢偅杈瑰鏋滀篃鎻愪緵浜嗗垏鎹㈠叆鍙ｏ紝鍒囨崲鍚庤繖閲岃鍚屾璺熶笂锛堝弻鍚戝悓姝ワ級
     const reloadCurrent = () => setCurrentWorldIdState(getCurrentWorldId());
     window.addEventListener(CHARACTER_WORLDS_UPDATED_EVENT, reload);
     window.addEventListener(CURRENT_WORLD_CHANGED_EVENT, reloadCurrent);
@@ -171,18 +171,18 @@ export function PhoneCharacterApp({ onClose, onNotice }: PhoneCharacterAppProps)
       window.removeEventListener(CURRENT_WORLD_CHANGED_EVENT, reloadCurrent);
     };
   }, []);
-  // 记忆的世界可能已被删除 → 回落默认卷宗
+  // 璁板繂鐨勪笘鐣屽彲鑳藉凡琚垹闄?鈫?鍥炶惤榛樿鍗峰畻
   const safeWorldId = worldGroups.some(g => g.id === currentWorldId) ? currentWorldId : DEFAULT_CHARACTER_WORLD_ID;
   function selectWorldId(worldId: string) {
     setCurrentWorldIdState(worldId);
-    // 持久化 + 广播：微信通讯录等监听方会据此自动切到同一个世界
+    // 鎸佷箙鍖?+ 骞挎挱锛氬井淇￠€氳褰曠瓑鐩戝惉鏂逛細鎹鑷姩鍒囧埌鍚屼竴涓笘鐣?
     persistCurrentWorldId(worldId);
   }
 
   function updateChars(next: Character[]) {
     setCharacters(next);
     saveCharacters(next);
-    // 角色增删会影响世界成员归属（normalize），同步刷新分组
+    // 瑙掕壊澧炲垹浼氬奖鍝嶄笘鐣屾垚鍛樺綊灞烇紙normalize锛夛紝鍚屾鍒锋柊鍒嗙粍
     setWorldGroups(loadCharacterWorldGroups());
   }
 
@@ -240,7 +240,7 @@ export function PhoneCharacterApp({ onClose, onNotice }: PhoneCharacterAppProps)
             onStartCharPlacement={(char: Character) => setPendingPlacementChar(char)}
             onPlacementDone={(placed: Character) => {
               setPendingPlacementChar(null);
-              // 新建/导入的角色放进当前打开的卷宗（normalize 默认丢进默认世界）
+              // 鏂板缓/瀵煎叆鐨勮鑹叉斁杩涘綋鍓嶆墦寮€鐨勫嵎瀹楋紙normalize 榛樿涓㈣繘榛樿涓栫晫锛?
               if (safeWorldId !== DEFAULT_CHARACTER_WORLD_ID) {
                 moveCharacterToWorld(placed.id, safeWorldId);
               } else {
@@ -270,7 +270,7 @@ export function PhoneCharacterApp({ onClose, onNotice }: PhoneCharacterAppProps)
               const existing = view.id ? characters.find((c) => c.id === view.id) : null;
               if (existing) {
                 const nextVersion = createVersion
-                  ? backupCharacterVersion(existing, "manual", "手动编辑前备份")
+                  ? backupCharacterVersion(existing, "manual", "鎵嬪姩缂栬緫鍓嶅浠?)
                   : overwriteCharacterVersion(existing.id);
                 const updated: Character = {
                   ...existing,
@@ -280,14 +280,14 @@ export function PhoneCharacterApp({ onClose, onNotice }: PhoneCharacterAppProps)
                 updateChars(characters.map((c) => (c.id === existing.id ? updated : c)));
                 setView({ type: "detail", id: existing.id, isEditing: false });
                 onNotice(createVersion
-                  ? `已备份旧卡，当前为 V${nextVersion}`
-                  : `已覆盖旧版本，当前为 V${nextVersion}`);
+                  ? `宸插浠芥棫鍗★紝褰撳墠涓?V${nextVersion}`
+                  : `宸茶鐩栨棫鐗堟湰锛屽綋鍓嶄负 V${nextVersion}`);
               } else {
                 const newChar = createCharacter(data);
                 newChar.polaroidStyle = pendingPolaroidStyle;
                 setPendingPlacementChar(newChar);
                 setView({ type: "list", id: null, isEditing: false });
-                onNotice("点击画布放置角色");
+                onNotice("鐐瑰嚮鐢诲竷鏀剧疆瑙掕壊");
               }
             }}
             onRestoreVersion={(version) => {
@@ -302,7 +302,7 @@ export function PhoneCharacterApp({ onClose, onNotice }: PhoneCharacterAppProps)
               };
               updateChars(characters.map((c) => (c.id === existing.id ? restored : c)));
               setView({ type: "detail", id: existing.id, isEditing: false });
-              onNotice(`已切换到 V${activeVersion}，未创建新版本`);
+              onNotice(`宸插垏鎹㈠埌 V${activeVersion}锛屾湭鍒涘缓鏂扮増鏈琡);
             }}
             onDelete={() => {
               if (view.id) {
@@ -310,7 +310,7 @@ export function PhoneCharacterApp({ onClose, onNotice }: PhoneCharacterAppProps)
                 updateChars(characters.filter((c) => c.id !== view.id));
               }
               setView({ type: "list", id: null, isEditing: false });
-              onNotice("已删除档案");
+              onNotice("宸插垹闄ゆ。妗?);
             }}
             onExportJson={() => {
               const c = view.id ? characters.find(x => x.id === view.id) : null;
@@ -320,9 +320,10 @@ export function PhoneCharacterApp({ onClose, onNotice }: PhoneCharacterAppProps)
               const c = view.id ? characters.find(x => x.id === view.id) : null;
               if (c) {
                 await exportCharacterAsPng(c);
-                onNotice("导出成功");
+                onNotice("瀵煎嚭鎴愬姛");
               }
             }}
+            onNotice={onNotice}
           />
         )}
       </div>
@@ -335,7 +336,7 @@ export function PhoneCharacterApp({ onClose, onNotice }: PhoneCharacterAppProps)
   );
 }
 
-// ── 过渡动效层 ───────────────────────────────────────
+// 鈹€鈹€ 杩囨浮鍔ㄦ晥灞?鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 function FlipTransitionOverlay({ transit }: { transit: TransitionState }) {
   const { char, sourceRect, phase } = transit;
@@ -425,7 +426,7 @@ function FlipTransitionOverlay({ transit }: { transit: TransitionState }) {
 }
 
 
-// ── 列表视图（照片墙） ─────────────────────────────────────────
+// 鈹€鈹€ 鍒楄〃瑙嗗浘锛堢収鐗囧锛?鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 function CharListView({
   characters,
@@ -464,7 +465,7 @@ function CharListView({
   const [showNpcGen, setShowNpcGen] = useState(false);
   const [activeMoveChar, setActiveMoveChar] = useState<Character | null>(null);
 
-  // ── 世界卷宗：当前世界派生数据 ──
+  // 鈹€鈹€ 涓栫晫鍗峰畻锛氬綋鍓嶄笘鐣屾淳鐢熸暟鎹?鈹€鈹€
   const currentGroup = worldGroups.find(g => g.id === currentWorldId)
     ?? worldGroups.find(g => g.id === DEFAULT_CHARACTER_WORLD_ID)
     ?? worldGroups[0];
@@ -472,8 +473,8 @@ function CharListView({
   const worldCharacters = characters.filter(c => memberSet.has(c.id));
   const worldBgItems = (bgItems || []).filter(item => (item.worldId ?? DEFAULT_CHARACTER_WORLD_ID) === currentWorldId);
   const memberCounts = new Map(worldGroups.map(g => [g.id, g.memberIds.length]));
-  const nameById = new Map(characters.map(c => [c.id, c.name || "未命名"]));
-  // 连线与世界观关系同步：同一对角色的多条关系合并为一条线
+  const nameById = new Map(characters.map(c => [c.id, c.name || "鏈懡鍚?]));
+  // 杩炵嚎涓庝笘鐣岃鍏崇郴鍚屾锛氬悓涓€瀵硅鑹茬殑澶氭潯鍏崇郴鍚堝苟涓轰竴鏉＄嚎
   const relationLines: CanvasRelationLine[] = (() => {
     const pairs = new Map<string, CanvasRelationLine>();
     for (const relation of currentGroup?.relations ?? []) {
@@ -489,26 +490,26 @@ function CharListView({
     return [...pairs.values()];
   })();
 
-  // ── 世界卷宗：弹层与交互状态 ──
+  // 鈹€鈹€ 涓栫晫鍗峰畻锛氬脊灞備笌浜や簰鐘舵€?鈹€鈹€
   const [showWorldEditor, setShowWorldEditor] = useState(false);
   const [showNewWorld, setShowNewWorld] = useState(false);
   const [dropTargetWorldId, setDropTargetWorldId] = useState<string | null>(null);
-  // 拉线：编辑模式下点照片A→照片B
+  // 鎷夌嚎锛氱紪杈戞ā寮忎笅鐐圭収鐗嘇鈫掔収鐗嘊
   const [linkFromId, setLinkFromId] = useState<string | null>(null);
   const [linkTo, setLinkTo] = useState<{ fromId: string; toId: string } | null>(null);
   const [pairSheet, setPairSheet] = useState<{ aId: string; bId: string } | null>(null);
 
-  // 切世界/退出编辑时收起拉线状态
+  // 鍒囦笘鐣?閫€鍑虹紪杈戞椂鏀惰捣鎷夌嚎鐘舵€?
   useEffect(() => { setLinkFromId(null); setLinkTo(null); setPairSheet(null); }, [currentWorldId]);
 
-  /** 编辑模式下点拍立得：起线/落线 */
+  /** 缂栬緫妯″紡涓嬬偣鎷嶇珛寰楋細璧风嚎/钀界嚎 */
   function handleCharEditTap(charId: string) {
     if (linkFromId === charId) { setLinkFromId(null); return; }
     if (linkFromId) { setLinkTo({ fromId: linkFromId, toId: charId }); setLinkFromId(null); return; }
     setLinkFromId(charId);
   }
 
-  /** 拖拍立得时实时检测是否悬停在某个世界 tab 上 */
+  /** 鎷栨媿绔嬪緱鏃跺疄鏃舵娴嬫槸鍚︽偓鍋滃湪鏌愪釜涓栫晫 tab 涓?*/
   function handleCharDragMoveAt(clientX: number, clientY: number) {
     const tabEl = typeof document !== "undefined"
       ? document.elementFromPoint(clientX, clientY)?.closest("[data-world-tab-id]")
@@ -517,7 +518,7 @@ function CharListView({
     setDropTargetWorldId(worldId && worldId !== currentWorldId ? worldId : null);
   }
 
-  /** 松手落在世界 tab 上：把角色归档进那份卷宗（清旧坐标，按目标画布视野自动放置） */
+  /** 鏉炬墜钀藉湪涓栫晫 tab 涓婏細鎶婅鑹插綊妗ｈ繘閭ｄ唤鍗峰畻锛堟竻鏃у潗鏍囷紝鎸夌洰鏍囩敾甯冭閲庤嚜鍔ㄦ斁缃級 */
   function handleCharDropAt(charId: string, clientX: number, clientY: number): boolean {
     setDropTargetWorldId(null);
     const tabEl = typeof document !== "undefined"
@@ -528,7 +529,7 @@ function CharListView({
     const targetGroup = worldGroups.find(g => g.id === worldId);
     if (!targetGroup) return false;
 
-    // 目标世界画布的可视区左上附近自动放置（读它的 pan 记忆）
+    // 鐩爣涓栫晫鐢诲竷鐨勫彲瑙嗗尯宸︿笂闄勮繎鑷姩鏀剧疆锛堣瀹冪殑 pan 璁板繂锛?
     let targetPan = { x: 0, y: 0, zoom: 1 };
     try {
       const raw = kvGet(worldPanKey(worldId));
@@ -544,19 +545,19 @@ function CharListView({
       : c
     ));
     moveCharacterToWorld(charId, worldId);
-    onNotice(`已归入卷宗「${targetGroup.name}」`);
+    onNotice(`宸插綊鍏ュ嵎瀹椼€?{targetGroup.name}銆峘);
     return true;
   }
 
-  /** 「生成配角」确认落库（支持一批）：落库逻辑与聊天名片建档共用 lib/npc-generator 的 materialize */
+  /** 銆岀敓鎴愰厤瑙掋€嶇‘璁よ惤搴擄紙鏀寔涓€鎵癸級锛氳惤搴撻€昏緫涓庤亰澶╁悕鐗囧缓妗ｅ叡鐢?lib/npc-generator 鐨?materialize */
   function handleNpcGenerated(results: GeneratedSupportingCharacter[], targetId: string, allowAutoPost: boolean) {
     const newChars = results.map((result, index) =>
       materializeSupportingCharacter(result, targetId, { allowAutoPost, placementIndex: index })
     );
-    // materialize 直接写存储；这里回读刷新 React 态（onUpdateChars 会再存一次同数据，无害）
+    // materialize 鐩存帴鍐欏瓨鍌紱杩欓噷鍥炶鍒锋柊 React 鎬侊紙onUpdateChars 浼氬啀瀛樹竴娆″悓鏁版嵁锛屾棤瀹筹級
     onUpdateChars(loadCharacters());
     setShowNpcGen(false);
-    onNotice(`已生成配角：${newChars.map(c => `「${c.name}」`).join("")}`);
+    onNotice(`宸茬敓鎴愰厤瑙掞細${newChars.map(c => `銆?{c.name}銆峘).join("")}`);
   }
 
   useEffect(() => {
@@ -611,7 +612,7 @@ function CharListView({
 
   const [pan, setPan] = useState(() => loadWorldPan(currentWorldId));
 
-  /** 切换世界：先保存当前画布视野，再切换并载入目标画布的视野 */
+  /** 鍒囨崲涓栫晫锛氬厛淇濆瓨褰撳墠鐢诲竷瑙嗛噹锛屽啀鍒囨崲骞惰浇鍏ョ洰鏍囩敾甯冪殑瑙嗛噹 */
   function selectWorld(worldId: string) {
     if (worldId === currentWorldId) return;
     try { kvSet(worldPanKey(currentWorldId), JSON.stringify(panRef.current)); } catch { }
@@ -630,14 +631,14 @@ function CharListView({
 
   function toggleEditing() {
     if (isEditing) {
-      // Exiting edit mode → persist pan + zoom position（按当前世界）
+      // Exiting edit mode 鈫?persist pan + zoom position锛堟寜褰撳墠涓栫晫锛?
       try { kvSet(worldPanKey(currentWorldId), JSON.stringify(pan)); } catch { }
       setLinkFromId(null);
     }
     setIsEditing(!isEditing);
   }
 
-  /** 恢复视角：把当前世界所有已放置的卡片/道具重新框进可视范围（卡片被拖出画面找不到时用） */
+  /** 鎭㈠瑙嗚锛氭妸褰撳墠涓栫晫鎵€鏈夊凡鏀剧疆鐨勫崱鐗?閬撳叿閲嶆柊妗嗚繘鍙鑼冨洿锛堝崱鐗囪鎷栧嚭鐢婚潰鎵句笉鍒版椂鐢級 */
   function resetViewToFit() {
     const rect = canvasElRef.current?.getBoundingClientRect();
     if (!rect || rect.width === 0 || rect.height === 0) return;
@@ -650,7 +651,7 @@ function CharListView({
     if (points.length === 0) {
       next = { x: 0, y: 0, zoom: 1 };
     } else {
-      // 卡片以左上角定位，按最大卡片尺寸把包围盒补足，再留出边距
+      // 鍗＄墖浠ュ乏涓婅瀹氫綅锛屾寜鏈€澶у崱鐗囧昂瀵告妸鍖呭洿鐩掕ˉ瓒筹紝鍐嶇暀鍑鸿竟璺?
       const ITEM_W = 170, ITEM_H = 240, PAD = 40;
       const minX = Math.min(...points.map(p => p.x)) - PAD;
       const minY = Math.min(...points.map(p => p.y)) - PAD;
@@ -665,13 +666,13 @@ function CharListView({
     }
     setPan(next);
     try { kvSet(worldPanKey(currentWorldId), JSON.stringify(next)); } catch { }
-    onNotice("已恢复视角");
+    onNotice("宸叉仮澶嶈瑙?);
   }
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string, type: 'char' | 'bg' } | null>(null);
   const [deleteConfirmReady, setDeleteConfirmReady] = useState(false);
   const [isAnyDragging, setIsAnyDragging] = useState(false);
   const [overTrashBin, setOverTrashBin] = useState(false);
-  // 拖拽结束（含取消）时清掉世界 tab 的归档高亮
+  // 鎷栨嫿缁撴潫锛堝惈鍙栨秷锛夋椂娓呮帀涓栫晫 tab 鐨勫綊妗ｉ珮浜?
   useEffect(() => { if (!isAnyDragging) setDropTargetWorldId(null); }, [isAnyDragging]);
   const trashBinRef = useRef<HTMLDivElement>(null);
   const isEditingRef = useRef(isEditing);
@@ -725,7 +726,7 @@ function CharListView({
         };
         onUpdateChars([...characters, charWithCoords]);
         onPlacementDone(charWithCoords);
-        onNotice("已放置角色");
+        onNotice("宸叉斁缃鑹?);
       } else if (pendingBgType) {
         const newId = `bg_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
         const newItem: CanvasBgItem = {
@@ -739,13 +740,13 @@ function CharListView({
         };
         onUpdateBgItems([...(bgItems || []), newItem]);
         setPendingBgType(null);
-        onNotice("已放置道具");
+        onNotice("宸叉斁缃亾鍏?);
       }
       return;
     }
     if (!isEditing) return;
     if ((e.target as HTMLElement).closest('.char-polaroid-board-item') || (e.target as HTMLElement).closest('.char-bg-item')) return;
-    if (linkFromId) setLinkFromId(null); // 点空白处取消拉线
+    if (linkFromId) setLinkFromId(null); // 鐐圭┖鐧藉鍙栨秷鎷夌嚎
     isDraggingCanvasRef.current = true;
     canvasPointerIdRef.current = e.pointerId;
     startPanRef.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
@@ -844,7 +845,7 @@ function CharListView({
   }, []);
 
 
-  // Wheel zoom (desktop) — use native event to allow preventDefault on non-passive listener
+  // Wheel zoom (desktop) 鈥?use native event to allow preventDefault on non-passive listener
   useEffect(() => {
     const el = canvasElRef.current;
     if (!el) return;
@@ -875,7 +876,7 @@ function CharListView({
   function handleAddBgItem(type: CanvasBgItem['type']) {
     setPendingBgType(type);
     setIsPropsMenuOpen(false);
-    onNotice("点击画布放置道具");
+    onNotice("鐐瑰嚮鐢诲竷鏀剧疆閬撳叿");
   }
 
   async function handleImportFile(file: File) {
@@ -884,15 +885,15 @@ function CharListView({
       if (file.type === "application/json" || file.name.endsWith(".json")) {
         const text = await file.text();
         const data = parseCharacterFromJson(text);
-        if (!data) return onNotice("解析失败，请检查文件格式");
+        if (!data) return onNotice("瑙ｆ瀽澶辫触锛岃妫€鏌ユ枃浠舵牸寮?);
         const c = createCharacter(data);
         c.polaroidStyle = styleIdx;
         onStartCharPlacement(c);
-        onNotice("点击画布放置角色");
+        onNotice("鐐瑰嚮鐢诲竷鏀剧疆瑙掕壊");
       } else if (file.type === "image/png" || file.name.endsWith(".png")) {
         const buffer = await file.arrayBuffer();
         const data = parseCharacterFromPng(buffer);
-        if (!data) return onNotice("未在 PNG 中找到角色数据");
+        if (!data) return onNotice("鏈湪 PNG 涓壘鍒拌鑹叉暟鎹?);
         let avatar = "";
         try {
           avatar = await fileToDataUrl(file);
@@ -905,15 +906,15 @@ function CharListView({
         const c = createCharacter({ ...data, avatar });
         c.polaroidStyle = styleIdx;
         onStartCharPlacement(c);
-        onNotice("点击画布放置角色");
+        onNotice("鐐瑰嚮鐢诲竷鏀剧疆瑙掕壊");
       } else {
-        onNotice("请选择 .json 或 .png 文件");
+        onNotice("璇烽€夋嫨 .json 鎴?.png 鏂囦欢");
       }
     } catch (e) {
       if (e instanceof Error && e.message === CHAR_BLOCKED_FIELDS) {
-        setImportError("不支持包含开场白、场景或示例对话的角色卡");
+        setImportError("涓嶆敮鎸佸寘鍚紑鍦虹櫧銆佸満鏅垨绀轰緥瀵硅瘽鐨勮鑹插崱");
       } else {
-        onNotice("解析失败，请检查文件格式");
+        onNotice("瑙ｆ瀽澶辫触锛岃妫€鏌ユ枃浠舵牸寮?);
       }
     }
   }
@@ -1021,7 +1022,7 @@ function CharListView({
           <button
             className="flex items-center justify-center w-[34px] h-[34px] rounded-full bg-black/5 text-[#666] hover:bg-black/10 transition-colors"
             onClick={onClose}
-            aria-label="返回桌面"
+            aria-label="杩斿洖妗岄潰"
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
           </button>
@@ -1033,8 +1034,8 @@ function CharListView({
               <button
                 className="flex items-center justify-center w-[34px] h-[34px] rounded-full bg-black/5 text-[#666] hover:bg-black/10 transition-colors"
                 onClick={() => resetViewToFit()}
-                aria-label="恢复视角"
-                title="恢复视角"
+                aria-label="鎭㈠瑙嗚"
+                title="鎭㈠瑙嗚"
               >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"></path><path d="M21 8V5a2 2 0 0 0-2-2h-3"></path><path d="M3 16v3a2 2 0 0 0 2 2h3"></path><path d="M16 21h3a2 2 0 0 0 2-2v-3"></path><circle cx="12" cy="12" r="2.5"></circle></svg>
               </button>
@@ -1046,7 +1047,7 @@ function CharListView({
                   : 'bg-black/5 text-[#666] hover:bg-black/10'
               }`}
               onClick={() => toggleEditing()}
-              aria-label="编辑排版"
+              aria-label="缂栬緫鎺掔増"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
             </button>
@@ -1084,7 +1085,7 @@ function CharListView({
           </div>
         }
       >
-      {/* 世界卷宗标签条：每个世界一份案卷、一张画布 */}
+      {/* 涓栫晫鍗峰畻鏍囩鏉★細姣忎釜涓栫晫涓€浠芥鍗枫€佷竴寮犵敾甯?*/}
       <WorldTabStrip
         groups={worldGroups}
         currentWorldId={currentWorldId}
@@ -1110,10 +1111,10 @@ function CharListView({
         }}
         style={{ touchAction: 'none', WebkitUserSelect: 'none', cursor: placementActive ? 'crosshair' : undefined }}
       >
-        {/* 拉线进行中的提示纸条 */}
+        {/* 鎷夌嚎杩涜涓殑鎻愮ず绾告潯 */}
         {linkFromId && (
           <div className="wt-link-hint">
-            正在从 <strong>{nameById.get(linkFromId) ?? "?"}</strong> 拉线 · 点另一张照片牵上关系，点空白处取消
+            姝ｅ湪浠?<strong>{nameById.get(linkFromId) ?? "?"}</strong> 鎷夌嚎 路 鐐瑰彟涓€寮犵収鐗囩壍涓婂叧绯伙紝鐐圭┖鐧藉鍙栨秷
           </div>
         )}
         {worldCharacters.length === 0 && worldBgItems.length === 0 ? (
@@ -1121,12 +1122,12 @@ function CharListView({
             <div className="char-empty-icon">
               <IconCamera size={44} />
             </div>
-            <p className="char-empty-text">这份卷宗还是空的</p>
-            <p className="char-empty-sub">CREATE 建人 · NPC 生成配角 · 或从别的卷宗拖人进来</p>
+            <p className="char-empty-text">杩欎唤鍗峰畻杩樻槸绌虹殑</p>
+            <p className="char-empty-sub">CREATE 寤轰汉 路 NPC 鐢熸垚閰嶈 路 鎴栦粠鍒殑鍗峰畻鎷栦汉杩涙潵</p>
           </div>
         ) : (
           <div className="char-infinite-container absolute w-0 h-0 origin-top-left" style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${pan.zoom})` }}>
-            {/* 连线原本在这里渲染，现在移到了下方，确保它覆盖在拍立得照片的上方 */}
+            {/* 杩炵嚎鍘熸湰鍦ㄨ繖閲屾覆鏌擄紝鐜板湪绉诲埌浜嗕笅鏂癸紝纭繚瀹冭鐩栧湪鎷嶇珛寰楃収鐗囩殑涓婃柟 */}
 
             {worldBgItems.map(item => (
               <DraggableNode
@@ -1171,6 +1172,7 @@ function CharListView({
                   onEditTap={handleCharEditTap}
                   onDragMoveAt={handleCharDragMoveAt}
                   onDropAt={handleCharDropAt}
+                  use2dTransform
                   trashBinRef={trashBinRef}
                   onDragActiveChange={setIsAnyDragging}
                   onOverTrashChange={setOverTrashBin}
@@ -1188,7 +1190,7 @@ function CharListView({
                     <button
                       className="char-polaroid-menu-btn absolute top-1 right-1 w-6 h-6 bg-black/20 text-white rounded-full flex items-center justify-center cursor-pointer hover:bg-black/40 transition-colors z-10"
                       onClick={(e) => { e.stopPropagation(); setActiveMoveChar(char); }}
-                      aria-label="转移世界"
+                      aria-label="杞Щ涓栫晫"
                     >
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
                     </button>
@@ -1198,7 +1200,7 @@ function CharListView({
               );
             })}
 
-            {/* 把拉线放在所有卡片的最后渲染，并设置超高 zIndex，使其盖在所有照片之上 */}
+            {/* 鎶婃媺绾挎斁鍦ㄦ墍鏈夊崱鐗囩殑鏈€鍚庢覆鏌擄紝骞惰缃秴楂?zIndex锛屼娇鍏剁洊鍦ㄦ墍鏈夌収鐗囦箣涓?*/}
             <svg className="absolute top-0 left-0 w-[10000px] h-[10000px] pointer-events-none overflow-visible" style={{ zIndex: 99999 }}>
               {relationLines.map(line => {
                 const a = worldCharacters.find(c => c.id === line.aId);
@@ -1208,12 +1210,12 @@ function CharListView({
                 const x2 = b.canvasX + 60, y2 = b.canvasY + 60;
                 return (
                   <g key={line.key}>
-                    {/* 连线阴影 (更淡的阴影) */}
+                    {/* 杩炵嚎闃村奖 (鏇存贰鐨勯槾褰? */}
                     <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="rgba(0,0,0,0.04)" strokeWidth="2" transform="translate(1, 1.5)" strokeDasharray="6 3" />
-                    {/* 虚线（颜色更深） */}
+                    {/* 铏氱嚎锛堥鑹叉洿娣憋級 */}
                     <line x1={x1} y1={y1} x2={x2} y2={y2} stroke="#222222" strokeWidth="1.5" opacity={0.9} strokeDasharray="6 3" />
 
-                    {/* 图钉 (Pushpins - 更深的主色，更浅的阴影) */}
+                    {/* 鍥鹃拤 (Pushpins - 鏇存繁鐨勪富鑹诧紝鏇存祬鐨勯槾褰? */}
                     <g transform={`translate(${x1}, ${y1})`}>
                       <circle cx="1.5" cy="2" r="4.5" fill="rgba(0,0,0,0.12)" />
                       <circle cx="0" cy="0" r="4.5" fill="#111111" />
@@ -1224,7 +1226,7 @@ function CharListView({
                       <circle cx="0" cy="0" r="4.5" fill="#111111" />
                       <circle cx="-1.5" cy="-1.5" r="1.5" fill="#555555" opacity="0.9" />
                     </g>
-                    {/* 关系标签 */}
+                    {/* 鍏崇郴鏍囩 */}
                     <foreignObject
                       x={(x1 + x2) / 2 - 100}
                       y={(y1 + y2) / 2 - 15}
@@ -1285,8 +1287,8 @@ function CharListView({
         {/* Placement mode banner */}
         {placementActive && (
           <div className="char-placement-hint" style={{ zIndex: 999999 }}>
-            <span className="char-placement-hint-finger" aria-hidden="true">👆</span>
-            <span>点击画布放置 · ESC 取消</span>
+            <span className="char-placement-hint-finger" aria-hidden="true">馃憜</span>
+            <span>鐐瑰嚮鐢诲竷鏀剧疆 路 ESC 鍙栨秷</span>
           </div>
         )}
 
@@ -1316,8 +1318,8 @@ function CharListView({
           }}
         >
           <div className="char-punched-hole-note" onClick={(e) => e.stopPropagation()}>
-            <h3>销毁确认</h3>
-            <p>您确定要丢弃该档案或物件吗？此操作将永远无法恢复。</p>
+            <h3>閿€姣佺‘璁?/h3>
+            <p>鎮ㄧ‘瀹氳涓㈠純璇ユ。妗堟垨鐗╀欢鍚楋紵姝ゆ搷浣滃皢姘歌繙鏃犳硶鎭㈠銆?/p>
             <div className="char-punched-hole-btn-group">
               <button
                 className="char-punched-hole-btn"
@@ -1325,18 +1327,18 @@ function CharListView({
                 onClick={() => {
                   if (deleteConfirmReady) setDeleteConfirm(null);
                 }}
-              >驳回申请</button>
+              >椹冲洖鐢宠</button>
               <button className="char-punched-hole-btn danger" disabled={!deleteConfirmReady} onClick={() => {
                 if (!deleteConfirmReady) return;
                 if (deleteConfirm.type === 'char') {
                   onUpdateChars(characters.filter(c => c.id !== deleteConfirm.id));
-                  onNotice?.("已销毁调查档案");
+                  onNotice?.("宸查攢姣佽皟鏌ユ。妗?);
                 } else {
                   onUpdateBgItems((bgItems || []).filter(b => b.id !== deleteConfirm.id));
-                  onNotice?.("已销毁散落物件");
+                  onNotice?.("宸查攢姣佹暎钀界墿浠?);
                 }
                 setDeleteConfirm(null);
-              }}>批准销毁</button>
+              }}>鎵瑰噯閿€姣?/button>
             </div>
           </div>
         </div>
@@ -1344,18 +1346,18 @@ function CharListView({
 
       {importError && (
         <ConfirmDialog
-          title="导入失败"
+          title="瀵煎叆澶辫触"
           message={importError}
           icon={AlertCircle}
           variant="danger"
-          confirmLabel="知道了"
+          confirmLabel="鐭ラ亾浜?
           cancelLabel=""
           onConfirm={() => setImportError(null)}
           onCancel={() => setImportError(null)}
         />
       )}
 
-      {/* NPC generator sheet — 目标角色限当前世界，生成的配角落在当前画布 */}
+      {/* NPC generator sheet 鈥?鐩爣瑙掕壊闄愬綋鍓嶄笘鐣岋紝鐢熸垚鐨勯厤瑙掕惤鍦ㄥ綋鍓嶇敾甯?*/}
       {showNpcGen && (
         <NpcGeneratorSheet
           characters={worldCharacters}
@@ -1364,7 +1366,7 @@ function CharListView({
         />
       )}
 
-      {/* 世界卷宗编辑 */}
+      {/* 涓栫晫鍗峰畻缂栬緫 */}
       {showWorldEditor && currentGroup && (
         <WorldCaseSheet
           group={currentGroup}
@@ -1374,26 +1376,26 @@ function CharListView({
             deleteCharacterWorldGroup(currentGroup.id);
             setShowWorldEditor(false);
             selectWorld(DEFAULT_CHARACTER_WORLD_ID);
-            onNotice("卷宗已删除，角色并回默认世界");
+            onNotice("鍗峰畻宸插垹闄わ紝瑙掕壊骞跺洖榛樿涓栫晫");
           }}
           onClose={() => setShowWorldEditor(false)}
         />
       )}
 
-      {/* 新建卷宗 */}
+      {/* 鏂板缓鍗峰畻 */}
       {showNewWorld && (
         <NewWorldSheet
           onCreate={name => {
             const group = createCharacterWorldGroup(name);
             setShowNewWorld(false);
             selectWorld(group.id);
-            onNotice(`已建立卷宗「${group.name}」`);
+            onNotice(`宸插缓绔嬪嵎瀹椼€?{group.name}銆峘);
           }}
           onClose={() => setShowNewWorld(false)}
         />
       )}
 
-      {/* 拉线：关系标签输入 */}
+      {/* 鎷夌嚎锛氬叧绯绘爣绛捐緭鍏?*/}
       {linkTo && currentGroup && (
         <RelationLinkDialog
           fromName={nameById.get(linkTo.fromId) ?? "?"}
@@ -1406,7 +1408,7 @@ function CharListView({
         />
       )}
 
-      {/* 关系细目：逐条剪断 */}
+      {/* 鍏崇郴缁嗙洰锛氶€愭潯鍓柇 */}
       {pairSheet && currentGroup && (
         <RelationPairSheet
           relations={(currentGroup.relations ?? []).filter(r =>
@@ -1451,9 +1453,9 @@ function CharListView({
               <div className="text-center ts-12 font-bold text-[#4a3f2f] mb-3 tracking-[1px] uppercase">Select Format</div>
               <div className="flex gap-1.5 justify-center">
                 {[
-                  { label: '正方', cls: 'ratio-square' },
-                  { label: '竖版', cls: 'ratio-portrait' },
-                  { label: '横版', cls: 'ratio-landscape' },
+                  { label: '姝ｆ柟', cls: 'ratio-square' },
+                  { label: '绔栫増', cls: 'ratio-portrait' },
+                  { label: '妯増', cls: 'ratio-landscape' },
                   { label: '16:9', cls: 'ratio-16-9' },
                   { label: '9:16', cls: 'ratio-9-16' },
                 ].map((style, idx) => (
@@ -1521,12 +1523,12 @@ function CharListView({
               <div className="text-center ts-12 font-bold text-[#4a3f2f] mb-3 tracking-[1px] uppercase">Add Props</div>
               <div className="flex gap-1.5 justify-center flex-wrap">
                 {([
-                  { type: 'a4' as const, label: '档案', w: 200, h: 280, scale: 0.16 },
-                  { type: 'yellow-note' as const, label: '便签', w: 110, h: 80, scale: 0.28 },
-                  { type: 'blue-note' as const, label: '传票', w: 120, h: 90, scale: 0.26 },
-                  { type: 'torn' as const, label: '碎片', w: 130, h: 70, scale: 0.24 },
-                  { type: 'grid' as const, label: '网格', w: 150, h: 100, scale: 0.21 },
-                  { type: 'scrap' as const, label: '烧纸', w: 140, h: 50, scale: 0.24 },
+                  { type: 'a4' as const, label: '妗ｆ', w: 200, h: 280, scale: 0.16 },
+                  { type: 'yellow-note' as const, label: '渚跨', w: 110, h: 80, scale: 0.28 },
+                  { type: 'blue-note' as const, label: '浼犵エ', w: 120, h: 90, scale: 0.26 },
+                  { type: 'torn' as const, label: '纰庣墖', w: 130, h: 70, scale: 0.24 },
+                  { type: 'grid' as const, label: '缃戞牸', w: 150, h: 100, scale: 0.21 },
+                  { type: 'scrap' as const, label: '鐑х焊', w: 140, h: 50, scale: 0.24 },
                 ]).map((item) => (
                   <button
                     key={item.type}
@@ -1565,12 +1567,12 @@ function CharListView({
         </div>
       )}
 
-      {/* 转移世界 Modal */}
+      {/* 杞Щ涓栫晫 Modal */}
       {activeMoveChar && (
         <div className="modal-overlay" data-ui="modal" onPointerDown={() => setActiveMoveChar(null)}>
           <div className="modal-dialog" data-ui="modal-dialog" onPointerDown={(e) => e.stopPropagation()} style={{ padding: 0, overflow: 'hidden' }}>
             <div className="modal-header" data-ui="modal-header" style={{ padding: '20px 20px 10px' }}>
-              <h3 className="modal-title" style={{ margin: 0, fontSize: '16px' }}>转移到其他卷宗</h3>
+              <h3 className="modal-title" style={{ margin: 0, fontSize: '16px' }}>杞Щ鍒板叾浠栧嵎瀹?/h3>
             </div>
             <div role="listbox" style={{ maxHeight: '40dvh', padding: '10px 16px', overflowY: 'auto' }}>
               {worldGroups.filter(g => g.id !== currentWorldId).map(group => (
@@ -1588,11 +1590,11 @@ function CharListView({
                 </button>
               ))}
               {worldGroups.filter(g => g.id !== currentWorldId).length === 0 && (
-                <div style={{ padding: '20px', textAlign: 'center', color: '#999' }}>没有其他卷宗可供转移</div>
+                <div style={{ padding: '20px', textAlign: 'center', color: '#999' }}>娌℃湁鍏朵粬鍗峰畻鍙緵杞Щ</div>
               )}
             </div>
             <div className="modal-footer" data-ui="modal-footer" style={{ padding: '10px 20px 20px' }}>
-              <button className="ui-btn ui-btn-outline" style={{ width: '100%' }} onClick={() => setActiveMoveChar(null)}>取消</button>
+              <button className="ui-btn ui-btn-outline" style={{ width: '100%' }} onClick={() => setActiveMoveChar(null)}>鍙栨秷</button>
             </div>
           </div>
         </div>
@@ -1601,12 +1603,12 @@ function CharListView({
   );
 }
 
-// ── Draggable 组件封装 ───────────────────────────────────
+// 鈹€鈹€ Draggable 缁勪欢灏佽 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 function DraggableNode({
   id, x, y, rot, zIndex, children, onDragEnd, onClick, className, w, isEditing, onDeleteIntent,
   trashBinRef, onDragActiveChange, onOverTrashChange, zoom = 1, pinchRef,
-  onEditTap, onDragMoveAt, onDropAt
+  onEditTap, onDragMoveAt, onDropAt, use2dTransform = false
 }: {
   id: string; x: number; y: number; rot: number; zIndex: number;
   children: React.ReactNode;
@@ -1619,12 +1621,14 @@ function DraggableNode({
   onOverTrashChange?: (over: boolean) => void;
   zoom?: number;
   pinchRef?: React.RefObject<PinchState | null>;
-  /** 编辑模式下的「点按」（无位移的 tap）——用于拉线选点 */
+  /** 缂栬緫妯″紡涓嬬殑銆岀偣鎸夈€嶏紙鏃犱綅绉荤殑 tap锛夆€斺€旂敤浜庢媺绾块€夌偣 */
   onEditTap?: (id: string) => void;
-  /** 拖动过程中上报指针屏幕坐标——用于世界 tab 悬停高亮 */
+  /** 鎷栧姩杩囩▼涓笂鎶ユ寚閽堝睆骞曞潗鏍団€斺€旂敤浜庝笘鐣?tab 鎮仠楂樹寒 */
   onDragMoveAt?: (clientX: number, clientY: number) => void;
-  /** 松手时的落点处理；返回 true 表示已被消费（如归档进其他世界），位置回弹 */
+  /** 鏉炬墜鏃剁殑钀界偣澶勭悊锛涜繑鍥?true 琛ㄧず宸茶娑堣垂锛堝褰掓。杩涘叾浠栦笘鐣岋級锛屼綅缃洖寮?*/
   onDropAt?: (id: string, clientX: number, clientY: number) => boolean;
+  /** 浣跨敤浜岀淮浣嶇Щ锛岄伩鍏?3D 鍚堟垚瀵艰嚧妗ｆ澧欏浘鐗囬噸閲囨牱妯＄硦 */
+  use2dTransform?: boolean;
 }) {
   const [pos, setPos] = useState({ x, y });
   const [isDragging, setIsDragging] = useState(false);
@@ -1698,7 +1702,7 @@ function DraggableNode({
         setPos({ x: dragStart.current.startX, y: dragStart.current.startY });
         return;
       }
-      // 落点被外部消费（如拖到世界 tab 上归档）→ 位置回弹，不落坐标
+      // 钀界偣琚閮ㄦ秷璐癸紙濡傛嫋鍒颁笘鐣?tab 涓婂綊妗ｏ級鈫?浣嶇疆鍥炲脊锛屼笉钀藉潗鏍?
       if (dragStart.current.moved && onDropAt?.(id, e.clientX, e.clientY)) {
         setPos({ x: dragStart.current.startX, y: dragStart.current.startY });
         return;
@@ -1729,7 +1733,7 @@ function DraggableNode({
     if (isEditing) {
       e.stopPropagation();
       e.preventDefault();
-      // 编辑模式下无位移的点按 → 拉线选点
+      // 缂栬緫妯″紡涓嬫棤浣嶇Щ鐨勭偣鎸?鈫?鎷夌嚎閫夌偣
       if (onEditTap) onEditTap(id);
       return;
     }
@@ -1746,7 +1750,9 @@ function DraggableNode({
       onClickCapture={handleClick}
       style={{
         width: w,
-        transform: `translate3d(${pos.x}px, ${pos.y}px, 0) rotate(${rot}deg)`,
+        transform: use2dTransform
+          ? `translate(${pos.x}px, ${pos.y}px) rotate(${rot}deg)`
+          : `translate3d(${pos.x}px, ${pos.y}px, 0) rotate(${rot}deg)`,
         zIndex: isDragging ? 9999999 : zIndex,
         cursor: isDragging ? 'grabbing' : 'grab',
         touchAction: 'none',
@@ -1759,7 +1765,7 @@ function DraggableNode({
 }
 
 
-// ── 绝密档案视图（详情页面） ─────────────────────────────────────────
+// 鈹€鈹€ 缁濆瘑妗ｆ瑙嗗浘锛堣鎯呴〉闈級 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 function CharArchiveView({
   char,
@@ -1773,6 +1779,7 @@ function CharArchiveView({
   onDelete,
   onExportJson,
   onExportPng,
+  onNotice = () => { },
   dummy,
 }: {
   char: Character;
@@ -1786,6 +1793,7 @@ function CharArchiveView({
   onDelete: () => void;
   onExportJson: () => void;
   onExportPng: () => Promise<void>;
+  onNotice?: (text: string) => void;
   dummy?: boolean;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -1809,6 +1817,7 @@ function CharArchiveView({
   const [avatar, setAvatar] = useState<string | null>(char.avatar || null);
   const [showUrlInput, setShowUrlInput] = useState(false);
   const [urlInput, setUrlInput] = useState("");
+  const [avatarBusy, setAvatarBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Send mascot page context (on mount + field changes)
@@ -1816,7 +1825,7 @@ function CharArchiveView({
     notifyMascotPageContext({
       page: "character",
       mode: isEditing ? "editing" : "viewing",
-      label: `角色编辑 · ${name || "新角色"}`,
+      label: `瑙掕壊缂栬緫 路 ${name || "鏂拌鑹?}`,
       fields: {
         _characterId: char.id || "",
         name,
@@ -1846,11 +1855,11 @@ function CharArchiveView({
   // Reset mascot context on unmount
   useEffect(() => {
     return () => {
-      notifyMascotPageContext({ page: "desktop", mode: "idle", label: "桌面", fields: {} });
+      notifyMascotPageContext({ page: "desktop", mode: "idle", label: "妗岄潰", fields: {} });
     };
   }, []);
 
-  // Dirty check — compare current edit state vs original char
+  // Dirty check 鈥?compare current edit state vs original char
   function isDirty(): boolean {
     if (!isEditing) return false;
     if (name !== (char.name || "")) return true;
@@ -1888,8 +1897,21 @@ function CharArchiveView({
   }, [isEditing, char]);
 
   async function handleAvatarFile(file: File) {
-    const url = await fileToDataUrl(file);
-    setAvatar(url);
+    setAvatarBusy(true);
+    try {
+      const url = await fileToDataUrl(file, {
+        maxSize: 1280,
+        quality: 0.86,
+        maxBytes: CHARACTER_AVATAR_MAX_BYTES,
+        fallbacks: CHARACTER_AVATAR_COMPRESSION_FALLBACKS,
+      });
+      setAvatar(url);
+    } catch (error) {
+      console.error("Failed to optimize character avatar", error);
+      onNotice(error instanceof Error ? error.message : "鍥剧墖澶勭悊澶辫触锛岃鏇存崲鍥剧墖");
+    } finally {
+      setAvatarBusy(false);
+    }
   }
 
   function handleAvatarUrl() {
@@ -1903,7 +1925,7 @@ function CharArchiveView({
   function handleAddTag() {
     const t = tagInput.trim();
     if (!t) return;
-    const split = t.split(/[,，]/).map(x => x.trim()).filter(Boolean);
+    const split = t.split(/[,锛宂/).map(x => x.trim()).filter(Boolean);
     const newTags = Array.from(new Set([...tags, ...split]));
     setTags(newTags);
     setTagInput("");
@@ -1919,7 +1941,7 @@ function CharArchiveView({
         persona,
         personality: personality.trim() || undefined,
         briefPersona: trimmedBrief || undefined,
-        // 简介变动才刷新时间戳；未动则保留原值（供「设定已更新」过期提示判断）
+        // 绠€浠嬪彉鍔ㄦ墠鍒锋柊鏃堕棿鎴筹紱鏈姩鍒欎繚鐣欏師鍊硷紙渚涖€岃瀹氬凡鏇存柊銆嶈繃鏈熸彁绀哄垽鏂級
         briefPersonaUpdatedAt: trimmedBrief
           ? (trimmedBrief !== (char.briefPersona || "").trim() ? new Date().toISOString() : char.briefPersonaUpdatedAt)
           : undefined,
@@ -1955,7 +1977,7 @@ function CharArchiveView({
     try {
       const text = await generateBriefPersonaText({
         ...char,
-        name: name.trim() || char.name || "未命名角色",
+        name: name.trim() || char.name || "鏈懡鍚嶈鑹?,
         persona,
         personality: personality.trim() || undefined,
       });
@@ -2019,9 +2041,9 @@ function CharArchiveView({
           <div className="char-archive-left">
             <div
               className="char-archive-photo relative"
-              style={{ cursor: isEditing ? "pointer" : "default" }}
+              style={{ cursor: avatarBusy ? "wait" : isEditing ? "pointer" : "default" }}
               onClick={() => {
-                if (isEditing) {
+                if (isEditing && !avatarBusy) {
                   fileRef.current?.click();
                 }
               }}
@@ -2034,7 +2056,7 @@ function CharArchiveView({
               {isEditing && (
                 <div className="absolute inset-0 bg-black/30 flex flex-col items-center justify-center pointer-events-none text-white">
                   <IconCamera size={24} />
-                  <span className="ts-10 mt-1">Change Photo</span>
+                  <span className="ts-10 mt-1">{avatarBusy ? "Optimizing..." : "Change Photo"}</span>
                 </div>
               )}
             </div>
@@ -2044,6 +2066,7 @@ function CharArchiveView({
               type="file"
               accept="image/*"
               className="hidden"
+              disabled={avatarBusy}
               onChange={async (e) => {
                 const file = e.target.files?.[0];
                 if (file) await handleAvatarFile(file);
@@ -2131,7 +2154,7 @@ function CharArchiveView({
                     <button
                       onClick={() => setTags(tags.filter((_, idx) => idx !== i))}
                       className="bg-none border-none ml-1 cursor-pointer opacity-60 ts-12 p-0"
-                    >×</button>
+                    >脳</button>
                   )}
                 </div>
               ))}
@@ -2193,7 +2216,7 @@ function CharArchiveView({
             )}
           </div>
 
-          {/* Personality — shown when editing or when has content */}
+          {/* Personality 鈥?shown when editing or when has content */}
           {(isEditing || personality.trim()) && (
             <div className="char-log-entry mb-4 border-t border-dashed border-[#999] pt-3">
               <div className="char-log-entry-header">
@@ -2217,31 +2240,31 @@ function CharArchiveView({
             </div>
           )}
 
-          {/* 简量人设 — 注入到同世界有关系角色的上下文，防对方 OOC */}
+          {/* 绠€閲忎汉璁?鈥?娉ㄥ叆鍒板悓涓栫晫鏈夊叧绯昏鑹茬殑涓婁笅鏂囷紝闃插鏂?OOC */}
           {(isEditing || briefPersona.trim()) && (
             <div className="char-log-entry mb-4 border-t border-dashed border-[#999] pt-3">
               <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
-                <span className="char-log-entry-header !mb-0">BRIEF PERSONA / 简量人设</span>
+                <span className="char-log-entry-header !mb-0">BRIEF PERSONA / 绠€閲忎汉璁?/span>
                 {isEditing && (
                   <button
                     className="ts-10 px-3 py-1 bg-[#111111] text-white border-none rounded-full cursor-pointer disabled:opacity-50 hover:bg-[#222222] transition-colors"
                     disabled={briefBusy}
                     onClick={handleGenerateBrief}
                   >
-                    {briefBusy ? "生成中…" : briefPersona.trim() ? "重新生成" : "AI 生成"}
+                    {briefBusy ? "鐢熸垚涓€? : briefPersona.trim() ? "閲嶆柊鐢熸垚" : "AI 鐢熸垚"}
                   </button>
                 )}
               </div>
               <p className="ts-10 opacity-60 mt-1">
-                会注入给同世界与 TA 有关系的角色，帮助对方提到 TA 时不 OOC。
-                {!isEditing && isBriefPersonaStale(char) ? " ⚠ 设定已更新，建议重新生成简介。" : ""}
+                浼氭敞鍏ョ粰鍚屼笘鐣屼笌 TA 鏈夊叧绯荤殑瑙掕壊锛屽府鍔╁鏂规彁鍒?TA 鏃朵笉 OOC銆?
+                {!isEditing && isBriefPersonaStale(char) ? " 鈿?璁惧畾宸叉洿鏂帮紝寤鸿閲嶆柊鐢熸垚绠€浠嬨€? : ""}
               </p>
               {briefError && <p className="ts-10 mt-1" style={{ color: "#b4233b" }}>{briefError}</p>}
               {isEditing ? (
                 <AutoResizingTextarea
                   value={briefPersona}
                   onChange={setBriefPersona}
-                  placeholder="点「AI 生成」自动压缩人设，或手写 100~200 字简介…"
+                  placeholder="鐐广€孉I 鐢熸垚銆嶈嚜鍔ㄥ帇缂╀汉璁撅紝鎴栨墜鍐?100~200 瀛楃畝浠嬧€?
                   minHeight={60}
                   style={{
                     width: "100%", background: "color-mix(in srgb, var(--c-input) 50%, transparent)",
@@ -2301,13 +2324,13 @@ function CharArchiveView({
             <button
               className="char-action-btn"
               onClick={openVersionHistory}
-              aria-label="角色卡历史版本"
-              title="历史版本"
+              aria-label="瑙掕壊鍗″巻鍙茬増鏈?
+              title="鍘嗗彶鐗堟湰"
             >
               <History size={19} />
             </button>
           )}
-          <button className="char-action-btn" onClick={onEdit} aria-label="编辑角色卡">
+          <button className="char-action-btn" onClick={onEdit} aria-label="缂栬緫瑙掕壊鍗?>
             <IconEdit />
           </button>
         </div>
@@ -2316,11 +2339,11 @@ function CharArchiveView({
       {archiveFrame}
 
       {showSaveVersionConfirm && (
-        <div className="fixed inset-0 z-[10020] flex items-center justify-center bg-black/45 px-5" role="dialog" aria-modal="true" aria-label="保存角色卡">
+        <div className="fixed inset-0 z-[10020] flex items-center justify-center bg-black/45 px-5" role="dialog" aria-modal="true" aria-label="淇濆瓨瑙掕壊鍗?>
           <div className="w-full max-w-sm rounded-2xl border border-[var(--c-panel-border)] bg-[var(--c-page-body-bg)] p-5 text-[var(--c-text)] shadow-2xl">
-            <div className="text-base font-bold">保存角色卡</div>
+            <div className="text-base font-bold">淇濆瓨瑙掕壊鍗?/div>
             <p className="mt-2 ts-12 leading-relaxed opacity-75">
-              当前是 V{getCharacterCurrentVersion(char.id)}。你可以先保存修改前的旧卡，也可以覆盖当前版本。
+              褰撳墠鏄?V{getCharacterCurrentVersion(char.id)}銆備綘鍙互鍏堜繚瀛樹慨鏀瑰墠鐨勬棫鍗★紝涔熷彲浠ヨ鐩栧綋鍓嶇増鏈€?
             </p>
             <div className="mt-4 flex flex-col gap-2">
               <button
@@ -2331,7 +2354,7 @@ function CharArchiveView({
                   commitSave(true);
                 }}
               >
-                备份旧卡并保存为 V{getCharacterNextVersion(char.id)}
+                澶囦唤鏃у崱骞朵繚瀛樹负 V{getCharacterNextVersion(char.id)}
               </button>
               <button
                 type="button"
@@ -2341,14 +2364,14 @@ function CharArchiveView({
                   commitSave(false);
                 }}
               >
-                覆盖当前版本
+                瑕嗙洊褰撳墠鐗堟湰
               </button>
               <button
                 type="button"
                 className="px-4 py-2 opacity-65"
                 onClick={() => setShowSaveVersionConfirm(false)}
               >
-                取消
+                鍙栨秷
               </button>
             </div>
           </div>
@@ -2360,7 +2383,7 @@ function CharArchiveView({
           className="fixed inset-0 z-[10020] flex items-end justify-center bg-black/45 sm:items-center sm:px-5"
           role="dialog"
           aria-modal="true"
-          aria-label="角色卡历史版本"
+          aria-label="瑙掕壊鍗″巻鍙茬増鏈?
           onPointerDown={(event) => {
             if (event.target === event.currentTarget) setShowVersions(false);
           }}
@@ -2368,14 +2391,14 @@ function CharArchiveView({
           <div className="max-h-[78vh] w-full max-w-md overflow-hidden rounded-t-2xl border border-[var(--c-panel-border)] bg-[var(--c-page-body-bg)] text-[var(--c-text)] shadow-2xl sm:rounded-2xl">
             <div className="flex items-center justify-between border-b border-[var(--c-panel-border)] px-5 py-4">
               <div>
-                <div className="font-bold">历史版本</div>
-                <div className="mt-0.5 ts-10 opacity-60">当前生效：V{getCharacterCurrentVersion(char.id)}</div>
+                <div className="font-bold">鍘嗗彶鐗堟湰</div>
+                <div className="mt-0.5 ts-10 opacity-60">褰撳墠鐢熸晥锛歏{getCharacterCurrentVersion(char.id)}</div>
               </div>
-              <button type="button" className="px-2 py-1 font-semibold" onClick={() => setShowVersions(false)}>关闭</button>
+              <button type="button" className="px-2 py-1 font-semibold" onClick={() => setShowVersions(false)}>鍏抽棴</button>
             </div>
             <div className="max-h-[62vh] overflow-y-auto p-4">
               {versions.length === 0 ? (
-                <div className="py-10 text-center ts-12 opacity-60">还没有历史版本。编辑保存或由小卷修改后会自动生成。</div>
+                <div className="py-10 text-center ts-12 opacity-60">杩樻病鏈夊巻鍙茬増鏈€傜紪杈戜繚瀛樻垨鐢卞皬鍗蜂慨鏀瑰悗浼氳嚜鍔ㄧ敓鎴愩€?/div>
               ) : (
                 <div className="flex flex-col gap-3">
                   {versions.map((version) => (
@@ -2387,13 +2410,13 @@ function CharArchiveView({
                           <div className="mt-1 ts-10 opacity-50">{new Date(version.createdAt).toLocaleString()}</div>
                         </div>
                         {getCharacterCurrentVersion(char.id) === version.version && (
-                          <span className="shrink-0 rounded-full border border-[var(--c-panel-border)] px-2 py-1 ts-10">当前</span>
+                          <span className="shrink-0 rounded-full border border-[var(--c-panel-border)] px-2 py-1 ts-10">褰撳墠</span>
                         )}
                       </div>
                       <div className="mt-3 rounded-lg bg-black/5 p-3 ts-11 dark:bg-white/5">
-                        <div className="font-semibold">{version.data.name || "未命名角色"}</div>
+                        <div className="font-semibold">{version.data.name || "鏈懡鍚嶈鑹?}</div>
                         <div className="mt-1 line-clamp-3 whitespace-pre-wrap opacity-65">
-                          {version.data.persona || version.data.personality || "（无角色设定）"}
+                          {version.data.persona || version.data.personality || "锛堟棤瑙掕壊璁惧畾锛?}
                         </div>
                       </div>
                       <div className="mt-3 flex gap-2">
@@ -2403,14 +2426,14 @@ function CharArchiveView({
                           disabled={getCharacterCurrentVersion(char.id) === version.version}
                           onClick={() => setRestoreTarget(version)}
                         >
-                          切换到 V{version.version}
+                          鍒囨崲鍒?V{version.version}
                         </button>
                         <button
                           type="button"
                           className="rounded-lg border border-red-400/60 px-3 py-2 ts-12 text-red-600"
                           onClick={() => setDeleteVersionTarget(version)}
                         >
-                          删除
+                          鍒犻櫎
                         </button>               
                       </div>
                     </div>
@@ -2424,11 +2447,11 @@ function CharArchiveView({
 
       {restoreTarget && (
         <ConfirmDialog
-          title={`切换到 V${restoreTarget.version}？`}
-          message="当前角色卡会切换为该快照。切走前会同步保存当前版本，切换本身不会创建新版本号。"
+          title={`鍒囨崲鍒?V${restoreTarget.version}锛焋}
+          message="褰撳墠瑙掕壊鍗′細鍒囨崲涓鸿蹇収銆傚垏璧板墠浼氬悓姝ヤ繚瀛樺綋鍓嶇増鏈紝鍒囨崲鏈韩涓嶄細鍒涘缓鏂扮増鏈彿銆?
           icon={History}
-          confirmLabel="确认切换"
-          cancelLabel="取消"
+          confirmLabel="纭鍒囨崲"
+          cancelLabel="鍙栨秷"
           onConfirm={() => {
             const target = restoreTarget;
             setRestoreTarget(null);
@@ -2441,12 +2464,12 @@ function CharArchiveView({
 
       {deleteVersionTarget && (
         <ConfirmDialog
-          title={`删除 V${deleteVersionTarget.version}？`}
-          message="此历史快照删除后无法恢复，不会删除当前角色卡。"
+          title={`鍒犻櫎 V${deleteVersionTarget.version}锛焋}
+          message="姝ゅ巻鍙插揩鐓у垹闄ゅ悗鏃犳硶鎭㈠锛屼笉浼氬垹闄ゅ綋鍓嶈鑹插崱銆?
           icon={AlertCircle}
           variant="danger"
-          confirmLabel="删除版本"
-          cancelLabel="取消"
+          confirmLabel="鍒犻櫎鐗堟湰"
+          cancelLabel="鍙栨秷"
           onConfirm={() => removeVersion(deleteVersionTarget)}
           onCancel={() => setDeleteVersionTarget(null)}
         />
@@ -2517,12 +2540,12 @@ function CharArchiveView({
       {/* Unsaved changes confirmation dialog */}
       {showUnsavedConfirm && (
         <ConfirmDialog
-          title="确定要放弃编辑吗？"
-          message="当前编辑内容尚未保存，离开后所有更改将丢失。"
+          title="纭畾瑕佹斁寮冪紪杈戝悧锛?
+          message="褰撳墠缂栬緫鍐呭灏氭湭淇濆瓨锛岀寮€鍚庢墍鏈夋洿鏀瑰皢涓㈠け銆?
           icon={AlertCircle}
           variant="danger"
-          confirmLabel="放弃更改"
-          cancelLabel="继续编辑"
+          confirmLabel="鏀惧純鏇存敼"
+          cancelLabel="缁х画缂栬緫"
           onConfirm={() => {
             const action = showUnsavedConfirm;
             setShowUnsavedConfirm(null);
@@ -2538,7 +2561,7 @@ function CharArchiveView({
 
 // The CharEditView component has been removed as editing is now inline within CharArchiveView.
 
-// ── 共享子组件 ───────────────────────────────────────
+// 鈹€鈹€ 鍏变韩瀛愮粍浠?鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 function CharAvatarFallback({
   name,
@@ -2574,9 +2597,9 @@ function AutoResizingTextarea({
 }) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  // useLayoutEffect（绘制前同步执行）：把"塌成一行→撑回真实高度"放在同一帧、绘制之前完成，
-  // 避免某些内核（如小米浏览器）把中间那帧的高度骤减画出来、并因文档变矮把视口往上夹/拉。
-  // 同时记录并还原最近可滚动祖先的 scrollTop，作为对 reflow 滚动锚定的额外保护。
+  // useLayoutEffect锛堢粯鍒跺墠鍚屾鎵ц锛夛細鎶?濉屾垚涓€琛屸啋鎾戝洖鐪熷疄楂樺害"鏀惧湪鍚屼竴甯с€佺粯鍒朵箣鍓嶅畬鎴愶紝
+  // 閬垮厤鏌愪簺鍐呮牳锛堝灏忕背娴忚鍣級鎶婁腑闂撮偅甯х殑楂樺害楠ゅ噺鐢诲嚭鏉ャ€佸苟鍥犳枃妗ｅ彉鐭妸瑙嗗彛寰€涓婂す/鎷夈€?
+  // 鍚屾椂璁板綍骞惰繕鍘熸渶杩戝彲婊氬姩绁栧厛鐨?scrollTop锛屼綔涓哄 reflow 婊氬姩閿氬畾鐨勯澶栦繚鎶ゃ€?
   useLayoutEffect(() => {
     const ta = textareaRef.current;
     if (!ta) return;
@@ -2611,45 +2634,93 @@ function AutoResizingTextarea({
   );
 }
 
-// ── 工具函数 ─────────────────────────────────────────
+// 鈹€鈹€ 宸ュ叿鍑芥暟 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
-function fileToDataUrl(file: File): Promise<string> {
+type ImageCompressionAttempt = { maxSize: number; quality: number };
+
+function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
-    reader.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        const MAX_SIZE = 400;
-        let w = img.width;
-        let h = img.height;
-        if (w > MAX_SIZE || h > MAX_SIZE) {
-          if (w > h) {
-            h = Math.round(h * MAX_SIZE / w);
-            w = MAX_SIZE;
-          } else {
-            w = Math.round(w * MAX_SIZE / h);
-            h = MAX_SIZE;
-          }
-        }
-        const canvas = document.createElement("canvas");
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) return resolve(reader.result as string);
-        ctx.drawImage(img, 0, 0, w, h);
-
-        // Use webp or jpeg to heavily compress large png files before saving to localstorage
-        resolve(canvas.toDataURL("image/webp", 0.8));
-      };
-      img.onerror = () => resolve(reader.result as string); // fallback to raw
-      img.src = reader.result as string;
-    };
-    reader.onerror = reject;
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error || new Error("璇诲彇鍥剧墖澶辫触"));
     reader.readAsDataURL(file);
   });
 }
 
-// ── 图标 ─────────────────────────────────────────────
+function loadDataUrlImage(dataUrl: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("鏃犳硶瑙ｆ瀽鍥剧墖锛岃鏇存崲鍥剧墖"));
+    img.src = dataUrl;
+  });
+}
+
+function canvasToBlob(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob(
+      blob => blob ? resolve(blob) : reject(new Error("鍥剧墖缂栫爜澶辫触锛岃鏇存崲鍥剧墖")),
+      "image/webp",
+      quality,
+    );
+  });
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(reader.error || new Error("璇诲彇鍘嬬缉鍥剧墖澶辫触"));
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function fileToDataUrl(
+  file: File,
+  options: {
+    maxSize?: number;
+    quality?: number;
+    maxBytes?: number;
+    fallbacks?: readonly ImageCompressionAttempt[];
+  } = {},
+): Promise<string> {
+  const sourceDataUrl = await readFileAsDataUrl(file);
+  const maxSize = options.maxSize ?? 400;
+  const quality = options.quality ?? 0.8;
+
+  try {
+    const img = await loadDataUrlImage(sourceDataUrl);
+    const attempts: ImageCompressionAttempt[] = [
+      { maxSize, quality },
+      ...(options.fallbacks ?? []),
+    ];
+    const canvas = document.createElement("canvas");
+
+    for (const attempt of attempts) {
+      const scale = Math.min(1, attempt.maxSize / Math.max(img.width, img.height));
+      const width = Math.max(1, Math.round(img.width * scale));
+      const height = Math.max(1, Math.round(img.height * scale));
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("褰撳墠娴忚鍣ㄦ棤娉曞鐞嗗浘鐗囷紝璇锋洿鎹㈠浘鐗?);
+      ctx.drawImage(img, 0, 0, width, height);
+
+      const blob = await canvasToBlob(canvas, attempt.quality);
+      if (!options.maxBytes || blob.size <= options.maxBytes) {
+        return await blobToDataUrl(blob);
+      }
+    }
+
+    throw new Error(`鍥剧墖鍘嬬缉鍚庝粛瓒呰繃 ${Math.ceil((options.maxBytes ?? 0) / 1024)}KB锛岃鏇存崲鍥剧墖`);
+  } catch (error) {
+    // 鏃ц皟鐢ㄦ湭瑕佹眰浣撶Н涓婇檺鏃剁淮鎸佸師鏈夊吋瀹瑰厹搴曪紱瑙掕壊澶村儚鐨勫彈闄愰摼璺粷涓嶄繚瀛樺師濮嬪ぇ鍥俱€?
+    if (!options.maxBytes) return sourceDataUrl;
+    throw error;
+  }
+}
+
+// 鈹€鈹€ 鍥炬爣 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
 function IconBack() {
   return (
@@ -2708,11 +2779,11 @@ function IconTrash({ size = 20 }: { size?: number }) {
   );
 }
 
-// ── 组件实现 ─────────────────────────────────────────────
+// 鈹€鈹€ 缁勪欢瀹炵幇 鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
 
-// ── NPC 生成器 ─────────────────────────────────────────────
-// 「生成配角」弹层：选目标角色 + 可选要求 → LLM 生成完整角色卡 → 预览可编辑 → 确认落库。
-// 生成逻辑见 lib/npc-generator.ts；落库动作在父组件 handleNpcGenerated。
+// 鈹€鈹€ NPC 鐢熸垚鍣?鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€鈹€
+// 銆岀敓鎴愰厤瑙掋€嶅脊灞傦細閫夌洰鏍囪鑹?+ 鍙€夎姹?鈫?LLM 鐢熸垚瀹屾暣瑙掕壊鍗?鈫?棰勮鍙紪杈?鈫?纭钀藉簱銆?
+// 鐢熸垚閫昏緫瑙?lib/npc-generator.ts锛涜惤搴撳姩浣滃湪鐖剁粍浠?handleNpcGenerated銆?
 function NpcGeneratorSheet({ characters, onClose, onConfirm }: {
   characters: Character[];
   onClose: () => void;
@@ -2736,7 +2807,7 @@ function NpcGeneratorSheet({ characters, onClose, onConfirm }: {
       const generated = await generateSupportingCharacters(targetId, hint, count);
       setResults(generated);
       if (generated.length < count) {
-        setError(`本次只成功解析出 ${generated.length} 位配角，可直接使用或重新生成。`);
+        setError(`鏈鍙垚鍔熻В鏋愬嚭 ${generated.length} 浣嶉厤瑙掞紝鍙洿鎺ヤ娇鐢ㄦ垨閲嶆柊鐢熸垚銆俙);
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -2751,7 +2822,7 @@ function NpcGeneratorSheet({ characters, onClose, onConfirm }: {
   const removeAt = (index: number) => {
     setResults(prev => {
       const next = prev ? prev.filter((_, i) => i !== index) : prev;
-      return next && next.length > 0 ? next : null; // 全删了就回到生成表单
+      return next && next.length > 0 ? next : null; // 鍏ㄥ垹浜嗗氨鍥炲埌鐢熸垚琛ㄥ崟
     });
   };
   const confirmDisabled = busy
@@ -2775,13 +2846,13 @@ function NpcGeneratorSheet({ characters, onClose, onConfirm }: {
 
         {!results ? (
           <div className="flex flex-col">
-            <label className="wt-paper-label">为哪位角色生成配角</label>
+            <label className="wt-paper-label">涓哄摢浣嶈鑹茬敓鎴愰厤瑙?/label>
             <select className="wt-paper-input" value={targetId} onChange={e => setTargetId(e.target.value)}>
               {characters.map(c => (
-                <option key={c.id} value={c.id}>{c.name || "未命名角色"}</option>
+                <option key={c.id} value={c.id}>{c.name || "鏈懡鍚嶈鑹?}</option>
               ))}
             </select>
-            <label className="wt-paper-label mt-2">生成数量</label>
+            <label className="wt-paper-label mt-2">鐢熸垚鏁伴噺</label>
             <div className="flex gap-2">
               {[1, 2, 3, 4, 5].map(n => (
                 <button
@@ -2794,28 +2865,28 @@ function NpcGeneratorSheet({ characters, onClose, onConfirm }: {
                 </button>
               ))}
             </div>
-            <label className="wt-paper-label mt-2">补充要求（可选）</label>
+            <label className="wt-paper-label mt-2">琛ュ厖瑕佹眰锛堝彲閫夛級</label>
             <textarea
               className="wt-paper-textarea"
               style={{ minHeight: 64 }}
-              placeholder="例如：生成一个损友 / 她的亲妹妹 / 暗恋她的学长…"
+              placeholder="渚嬪锛氱敓鎴愪竴涓崯鍙?/ 濂圭殑浜插濡?/ 鏆楁亱濂圭殑瀛﹂暱鈥?
               value={hint}
               onChange={e => setHint(e.target.value)}
             />
-            <p className="wt-paper-hint mt-1">会带上 TA 的核心记忆与相关长期记忆——记忆里提过的人是最好的配角素材。</p>
+            <p className="wt-paper-hint mt-1">浼氬甫涓?TA 鐨勬牳蹇冭蹇嗕笌鐩稿叧闀挎湡璁板繂鈥斺€旇蹇嗛噷鎻愯繃鐨勪汉鏄渶濂界殑閰嶈绱犳潗銆?/p>
             {error && <p className="wt-paper-confirm mt-2">{error}</p>}
 
             <div className="wt-paper-actions mt-4">
-              <button className="wt-btn flex-1" onClick={onClose} disabled={busy}>取消</button>
+              <button className="wt-btn flex-1" onClick={onClose} disabled={busy}>鍙栨秷</button>
               <button
                 className="wt-btn wt-btn-primary flex-1"
                 onClick={handleGenerate}
                 disabled={busy || !targetId}
               >
-                {busy ? "生成中…" : "生成"}
+                {busy ? "鐢熸垚涓€? : "鐢熸垚"}
               </button>
             </div>
-            {characters.length === 0 && <p className="wt-paper-hint mt-2">还没有角色，先创建一位主角。</p>}
+            {characters.length === 0 && <p className="wt-paper-hint mt-2">杩樻病鏈夎鑹诧紝鍏堝垱寤轰竴浣嶄富瑙掋€?/p>}
           </div>
         ) : (
           <div className="flex flex-col">
@@ -2826,15 +2897,15 @@ function NpcGeneratorSheet({ characters, onClose, onConfirm }: {
                   <span className="wt-paper-spacer" />
                   {results.length > 1 && (
                     <button type="button" className="wt-btn wt-btn-danger wt-btn-small" onClick={() => removeAt(index)}>
-                      移除
+                      绉婚櫎
                     </button>
                   )}
                 </div>
 
-                <label className="wt-paper-label mt-2">名字</label>
+                <label className="wt-paper-label mt-2">鍚嶅瓧</label>
                 <input className="wt-paper-input" value={result.name} onChange={e => patchAt(index, { name: e.target.value })} />
 
-                <label className="wt-paper-label mt-2">人设（完整角色卡）</label>
+                <label className="wt-paper-label mt-2">浜鸿锛堝畬鏁磋鑹插崱锛?/label>
                 <textarea
                   className="wt-paper-textarea"
                   style={{ minHeight: 120 }}
@@ -2842,10 +2913,10 @@ function NpcGeneratorSheet({ characters, onClose, onConfirm }: {
                   onChange={e => patchAt(index, { persona: e.target.value })}
                 />
 
-                <label className="wt-paper-label mt-2">性格</label>
+                <label className="wt-paper-label mt-2">鎬ф牸</label>
                 <input className="wt-paper-input" value={result.personality} onChange={e => patchAt(index, { personality: e.target.value })} />
 
-                <label className="wt-paper-label mt-2">简量人设（注入给同世界角色）</label>
+                <label className="wt-paper-label mt-2">绠€閲忎汉璁撅紙娉ㄥ叆缁欏悓涓栫晫瑙掕壊锛?/label>
                 <textarea
                   className="wt-paper-textarea"
                   style={{ minHeight: 64 }}
@@ -2855,11 +2926,11 @@ function NpcGeneratorSheet({ characters, onClose, onConfirm }: {
 
                 <div className="flex gap-2 mt-2">
                   <div className="flex-1 flex flex-col">
-                    <label className="wt-paper-label">TA 是{targetName}的</label>
+                    <label className="wt-paper-label">TA 鏄瘂targetName}鐨?/label>
                     <input className="wt-paper-input" value={result.relationLabel} onChange={e => patchAt(index, { relationLabel: e.target.value })} />
                   </div>
                   <div className="flex-1 flex flex-col">
-                    <label className="wt-paper-label">{targetName}是 TA 的</label>
+                    <label className="wt-paper-label">{targetName}鏄?TA 鐨?/label>
                     <input className="wt-paper-input" value={result.reverseRelationLabel} onChange={e => patchAt(index, { reverseRelationLabel: e.target.value })} />
                   </div>
                 </div>
@@ -2868,26 +2939,26 @@ function NpcGeneratorSheet({ characters, onClose, onConfirm }: {
 
             <label className="flex items-center gap-2 mt-3 wt-paper-label" style={{ fontWeight: 'normal' }}>
               <input type="checkbox" checked={allowAutoPost} onChange={e => setAllowAutoPost(e.target.checked)} />
-              加好友后允许自动发朋友圈（本批全部生效）
+              鍔犲ソ鍙嬪悗鍏佽鑷姩鍙戞湅鍙嬪湀锛堟湰鎵瑰叏閮ㄧ敓鏁堬級
             </label>
 
             {error && <p className="wt-paper-confirm mt-2">{error}</p>}
 
             <div className="wt-paper-actions mt-4">
               <button className="wt-btn flex-1" onClick={handleGenerate} disabled={busy}>
-                {busy ? "生成中…" : "重新生成"}
+                {busy ? "鐢熸垚涓€? : "閲嶆柊鐢熸垚"}
               </button>
               <button
                 className="wt-btn wt-btn-primary flex-1"
                 disabled={confirmDisabled}
                 onClick={() => results && onConfirm(results, targetId, allowAutoPost)}
               >
-                {results.length > 1 ? `确认创建 ${results.length} 位` : "确认创建"}
+                {results.length > 1 ? `纭鍒涘缓 ${results.length} 浣峘 : "纭鍒涘缓"}
               </button>
             </div>
 
             <div className="flex mt-2">
-              <button className="wt-btn flex-1" onClick={onClose} disabled={busy}>取消</button>
+              <button className="wt-btn flex-1" onClick={onClose} disabled={busy}>鍙栨秷</button>
             </div>
           </div>
         )}
