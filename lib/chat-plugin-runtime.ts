@@ -13,6 +13,7 @@ import { kvGet, kvSet, kvRemove, hydrateKvDb } from "./kv-db";
 import { hydrateChatStorage, loadChatMessages, loadChatSessions, loadChatContacts, pushChatMessage, updateChatMessage, type ChatMessage } from "./chat-storage";
 import { isMediaStoreRef, loadMediaBlob } from "./media-cache-storage";
 import { loadCharacters } from "./character-storage";
+import { loadCharacterWorldGroups } from "./character-world-storage";
 import { loadApiConfigs, loadBindingConfig } from "./settings-storage";
 import { simpleLLMCall } from "./api-helpers";
 import { getChatPluginHookBus } from "./chat-plugin-hooks";
@@ -355,6 +356,11 @@ class ChatPluginRuntime {
                 characters: {
                     list: () => loadCharacters(),
                     get: (id) => loadCharacters().find(c => c.id === id) ?? null,
+                },
+                characterWorlds: {
+                    list: () => loadCharacterWorldGroups(),
+                    get: (id) => loadCharacterWorldGroups().find(g => g.id === id) ?? null,
+                    getByCharacterId: (characterId) => loadCharacterWorldGroups().find(g => g.memberIds.includes(characterId)) ?? null,
                 },
                 variables: {
                     get: (name, scope = "global", targetId) => getChatPluginVar(name, scope, targetId),

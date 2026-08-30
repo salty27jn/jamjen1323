@@ -514,6 +514,43 @@ const ENHANCEMENTS = [
         throw new Error("phone-character-app.tsx 缺少世界管理代码，请检查 .gitattributes");
       }
     },
+  },
+  // ── 插件 API：暴露角色世界分组数据 ──
+  {
+    id: "chat-plugin-runtime.ts: import loadCharacterWorldGroups",
+    check: () => read("lib/chat-plugin-runtime.ts").includes("import { loadCharacterWorldGroups } from"),
+    apply: () => {
+      let c = read("lib/chat-plugin-runtime.ts");
+      if (!c.includes("loadCharacterWorldGroups")) {
+        c = c.replace(
+          /import \{ loadCharacters \} from "\.\/character-storage";/,
+          'import { loadCharacters } from "./character-storage";\nimport { loadCharacterWorldGroups } from "./character-world-storage";'
+        );
+        write("lib/chat-plugin-runtime.ts", c);
+      }
+    },
+  },
+  {
+    id: "chat-plugin-runtime.ts: characterWorlds API",
+    check: () => read("lib/chat-plugin-runtime.ts").includes("characterWorlds:"),
+    apply: () => {
+      let c = read("lib/chat-plugin-runtime.ts");
+      if (!c.includes("characterWorlds:")) {
+        c = c.replace(
+          /characters: \{[\s\S]*?list: \(\) => loadCharacters\(\),[\s\S]*?get: \(id\) => loadCharacters\(\)\.find\(c => c\.id === id\) \?\? null,[\s\S]*?\},/,
+          `characters: {
+                    list: () => loadCharacters(),
+                    get: (id) => loadCharacters().find(c => c.id === id) ?? null,
+                },
+                characterWorlds: {
+                    list: () => loadCharacterWorldGroups(),
+                    get: (id) => loadCharacterWorldGroups().find(g => g.id === id) ?? null,
+                    getByCharacterId: (characterId) => loadCharacterWorldGroups().find(g => g.memberIds.includes(characterId)) ?? null,
+                },`
+        );
+        write("lib/chat-plugin-runtime.ts", c);
+      }
+    },
   },];
 
 let changed = false;
