@@ -12,6 +12,7 @@ import {
 import { loadCharacters } from "@/lib/character-storage";
 import type { Character } from "@/lib/character-types";
 import { getChatImageFromIndexedDB, saveChatImageToIndexedDB } from "@/lib/chat-asset-storage";
+import {
     fetchImageGenerationModels,
     fetchNovelAiModels,
     filterLikelyImageModels,

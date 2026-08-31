@@ -379,7 +379,7 @@ function FlipTransitionOverlay({ transit }: { transit: TransitionState }) {
         left: currentLeft,
         width: currentWidth,
         height: currentHeight,
-        transition: `all ${duration} cubic-bezier(0.25, 1, 0.5, 1)`,
+        transition: "all " + duration + " cubic-bezier(0.25, 1, 0.5, 1)",
       }}
     >
       <div
