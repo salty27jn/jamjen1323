@@ -270,7 +270,7 @@ export function PhoneCharacterApp({ onClose, onNotice }: PhoneCharacterAppProps)
               const existing = view.id ? characters.find((c) => c.id === view.id) : null;
               if (existing) {
                 const nextVersion = createVersion
-                  ? backupCharacterVersion(existing, "manual", "鎵嬪姩缂栬緫鍓嶅浠?)
+                  ? backupCharacterVersion(existing, "manual", "手动编辑前备份")
                   : overwriteCharacterVersion(existing.id);
                 const updated: Character = {
                   ...existing,
