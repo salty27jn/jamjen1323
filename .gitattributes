@@ -8,3 +8,4 @@ lib/xiaohongshu-types.ts merge=ours
 components/phone-character-app.tsx merge=ours
 components/chat/chat-message-list.tsx merge=ours
 components/chat/chat-contacts-list.tsx merge=ours
+components/settings/image-generation-settings.tsx merge=ours

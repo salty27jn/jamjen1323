@@ -130,17 +130,26 @@ const ENHANCEMENTS = [
     },
   },
   {
-    id: "sw.js: CACHE_VERSION v7",
-    check: () => read("public/sw.js").includes('CACHE_VERSION = "ai-phone-pwa-v7"'),
+    id: "sw.js: CACHE_VERSION >= v7",
+    check: () => {
+      const c = read("public/sw.js");
+      const match = c.match(/CACHE_VERSION = "ai-phone-pwa-v(\d+)"/);
+      if (!match) return false;
+      const version = parseInt(match[1], 10);
+      return version >= 7;
+    },
     apply: () => {
       const p = join(ROOT, "public", "sw.js");
       const c = readFileSync(p, "utf8");
-      if (c.includes("ai-phone-pwa-v7")) return;
+      const match = c.match(/CACHE_VERSION = "ai-phone-pwa-v(\d+)"/);
+      if (!match) throw new Error("sw.js CACHE_VERSION 锚点未找到");
+      const currentVersion = parseInt(match[1], 10);
+      if (currentVersion >= 7) return;
       const next = c.replace(
-        'CACHE_VERSION = "ai-phone-pwa-v4"',
+        `CACHE_VERSION = "ai-phone-pwa-v${currentVersion}"`,
         'CACHE_VERSION = "ai-phone-pwa-v7"',
       );
-      if (next === c) throw new Error("sw.js CACHE_VERSION 锚点未找到");
+      if (next === c) throw new Error("sw.js CACHE_VERSION 替换失败");
       writeFileSync(p, next, "utf8");
     },
   },
