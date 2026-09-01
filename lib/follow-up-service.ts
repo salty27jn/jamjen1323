@@ -21,6 +21,7 @@ import type { ChatMessage, StateValue } from "./chat-storage";
 import { generateChatCompletion, flattenCompletionResult } from "./chat-engine";
 import { armFollowUpBailout, armIdleReconnectBailout, cancelBailoutKey, cancelBailoutPrefix, cancelFollowUpBailout, startBailoutHeartbeat } from "./push-bailout-client";
 import { isWithinPushQuietHours } from "./push-client";
+import { loadImageGenerationSettings } from "./settings-storage";
 import {
     IDLE_RECONNECT_MAX_CONSECUTIVE,
     loadIdleReconnectRules,
@@ -1078,13 +1079,16 @@ export async function parseAndSaveResponse(
             ...(followUpIndex ? { followUpIndex } : {}),
         });
         if (isPendingChatGeneratedImageMessage(saved)) {
-            imageReplacementTasks.push(
-                generateAndApplyChatGeneratedImage(saved, sess?.contactId)
-                    .catch(error => {
-                        console.warn("[FollowUp] Image generation failed:", error);
-                        return null;
-                    }),
-            );
+            const bgAllowed = loadImageGenerationSettings().allowBackgroundImageGeneration !== false;
+            if (bgAllowed) {
+                imageReplacementTasks.push(
+                    generateAndApplyChatGeneratedImage(saved, sess?.contactId)
+                        .catch(error => {
+                            console.warn("[FollowUp] Image generation failed:", error);
+                            return null;
+                        }),
+                );
+            }
         }
         savedMessages.push(saved);
     }

@@ -460,36 +460,25 @@ function parseWorldBookEntry(e: any): WorldBookEntry {
 export function parseWorldBookFromJson(text: string): WorldBookConfig | null {
     try {
         const obj = JSON.parse(text);
-        console.log("[WB-PARSE] JSON.parse OK, keys:", obj ? Object.keys(obj) : "null/undefined", "typeof:", typeof obj);
-        if (!obj || typeof obj !== "object") { console.warn("[WB-PARSE] obj is null or not object"); return null; }
+        if (!obj || typeof obj !== "object") return null;
 
-        const unsupported = isUnsupportedWorldBookFormat(obj);
-        console.log("[WB-PARSE] isUnsupportedWorldBookFormat:", unsupported);
-        if (unsupported) throw new Error(UNSUPPORTED_IMPORT_FORMAT);
+        if (isUnsupportedWorldBookFormat(obj)) throw new Error(UNSUPPORTED_IMPORT_FORMAT);
 
         const wb = createWorldBook(obj.name || "导入的世界书");
-        console.log("[WB-PARSE] created wb, name:", wb.name, "id:", wb.id);
         if (Array.isArray(obj.entries)) {
-            console.log("[WB-PARSE] entries is Array, length:", obj.entries.length);
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const parsedEntries = obj.entries.map((e: any) => parseWorldBookEntry(e));
-            console.log("[WB-PARSE] parsedEntries count:", parsedEntries.length);
 
             // Note: some formats might use dictionary-shaped entries.
             wb.entries = parsedEntries;
         } else if (typeof obj.entries === "object" && obj.entries !== null) {
-            console.log("[WB-PARSE] entries is Object (not array), keys:", Object.keys(obj.entries));
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const parsedEntries = Object.values(obj.entries).map((e: any) => parseWorldBookEntry(e));
             wb.entries = parsedEntries;
-        } else {
-            console.log("[WB-PARSE] no entries found, type:", typeof obj.entries);
         }
 
-        console.log("[WB-PARSE] returning wb with", wb.entries.length, "entries");
         return wb;
     } catch (e) {
-        console.error("[WB-PARSE] catch block, error:", e);
         if (e instanceof Error && e.message === UNSUPPORTED_IMPORT_FORMAT) throw e;
         return null;
     }
@@ -694,6 +683,7 @@ export const DEFAULT_NOVELAI_PRESET: import("./settings-types").NovelAiPreset = 
 
 export const DEFAULT_IMAGE_GENERATION_SETTINGS: ImageGenerationSettings = {
     enabled: false,
+    allowBackgroundImageGeneration: true,
     provider: "openai",
     requestMode: "direct",
     apiKey: "",

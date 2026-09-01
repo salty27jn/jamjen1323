@@ -323,6 +323,18 @@ export function ImageGenerationSettings() {
                         <Toggle checked={noPhoto} onChange={(enabled) => { setNoPhoto(enabled); setNoPhotoEnabled(enabled); }} className="settings-toggle-control" />
                     </span>
                 </div>
+                <div className="menu-item">
+                    <span className="card-icon" style={imageGenerationIconStyle}>
+                        <Image size={22} strokeWidth={1.75} />
+                    </span>
+                    <span className="settings-tools-menu-copy">
+                        <span className="menu-label appearance-menu-item-label">允许后台生图</span>
+                        <span className="menu-desc settings-tools-menu-desc">关闭后，朋友圈、主动消息等后台服务不再调用图片 API（仅前台聊天可生图）。</span>
+                    </span>
+                    <span className="menu-right settings-tools-menu-toggle">
+                        <Toggle checked={settings.allowBackgroundImageGeneration !== false} onChange={(allowed) => updateSettings({ allowBackgroundImageGeneration: allowed })} className="settings-toggle-control" />
+                    </span>
+                </div>
             </div>
 
             <div className="menu-group p-4 flex flex-col gap-4">

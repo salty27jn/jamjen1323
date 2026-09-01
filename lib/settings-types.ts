@@ -216,6 +216,8 @@ export type NovelAiSettings = {
 
 export type ImageGenerationSettings = {
     enabled: boolean;
+    /** 允许后台服务（朋友圈、跟随消息、空闲重连等）触发图片生成。关闭后仅前台聊天可生图。 */
+    allowBackgroundImageGeneration?: boolean;
     provider?: ImageGenerationProvider;
     requestMode: ImageGenerationRequestMode;
     // OpenAI 模式配置

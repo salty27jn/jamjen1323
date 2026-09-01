@@ -263,6 +263,37 @@ const ENHANCEMENTS = [
     apply: () => {},
   },
   {
+    id: "image-generation-settings.tsx: 允许后台生图开关行",
+    check: () => read("components/settings/image-generation-settings.tsx").includes("allowBackgroundImageGeneration"),
+    apply: () => {
+      const p = join(ROOT, "components", "settings", "image-generation-settings.tsx");
+      const c = readFileSync(p, "utf8");
+      if (c.includes("allowBackgroundImageGeneration")) return;
+      // 在"禁止角色发照片"开关块之后插入"允许后台生图"开关
+      const anchor = 'className="settings-toggle-control" />\n                    </span>\n                </div>\n            </div>';
+      const insertBlock = `className="settings-toggle-control" />
+                    </span>
+                </div>
+                <div className="menu-item">
+                    <span className="card-icon" style={imageGenerationIconStyle}>
+                        <Image size={22} strokeWidth={1.75} />
+                    </span>
+                    <span className="settings-tools-menu-copy">
+                        <span className="menu-label appearance-menu-item-label">允许后台生图</span>
+                        <span className="menu-desc settings-tools-menu-desc">关闭后，朋友圈、主动消息等后台服务不再调用图片 API（仅前台聊天可生图）。</span>
+                    </span>
+                    <span className="menu-right settings-tools-menu-toggle">
+                        <Toggle checked={settings.allowBackgroundImageGeneration !== false} onChange={(allowed) => updateSettings({ allowBackgroundImageGeneration: allowed })} className="settings-toggle-control" />
+                    </span>
+                </div>
+            </div>`;
+      const idx = c.indexOf(anchor);
+      if (idx < 0) throw new Error("image-generation-settings.tsx 禁止角色发照片结尾锚点未找到");
+      const next = c.substring(0, idx) + insertBlock + c.substring(idx + anchor.length);
+      writeFileSync(p, next, "utf8");
+    },
+  },
+  {
     id: "builtin-preset.ts: moments_post 语言规则",
     check: () => read("lib/builtin-preset.ts").includes("\\u3010\\u8bed\\u8a00\\u89c4\\u5219\\u3011"),
     apply: () => {

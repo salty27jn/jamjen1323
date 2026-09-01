@@ -34,6 +34,7 @@ import {
     loadWorldBooks,
     loadRegexes,
     resolveUserIdentity,
+    loadImageGenerationSettings,
 } from "./settings-storage";
 import type { PresetConfig, ApiConfig } from "./settings-types";
 import { loadMemoryConfig, incrementEventCounter } from "./memory-storage";
@@ -363,7 +364,10 @@ async function triggerAIPost(characterId: string): Promise<void> {
         }
 
         if (parsed.photoDescription) {
-            attachMomentPhotoInBackground(post.id, parsed.photoDescription, characterId, parsed.photoUseReferenceImage === true);
+            const bgAllowed = loadImageGenerationSettings().allowBackgroundImageGeneration !== false;
+            if (bgAllowed) {
+                attachMomentPhotoInBackground(post.id, parsed.photoDescription, characterId, parsed.photoUseReferenceImage === true);
+            }
         }
 
         // Increment event counter for auto-summarization (native data read at summarization time)

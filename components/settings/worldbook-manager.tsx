@@ -290,35 +290,24 @@ export function WorldBookManager({ isActive = true }: { isActive?: boolean } = {
         const file = e.target.files?.[0];
         if (!file) return;
 
-        console.log("[WB-IMPORT] file selected:", file.name, "size:", file.size, "type:", file.type);
         const reader = new FileReader();
         reader.onload = (event) => {
             try {
                 const text = event.target?.result as string;
-                console.log("[WB-IMPORT] text length:", text?.length, "first 200 chars:", text?.substring(0, 200));
                 const parsed = parseWorldBookFromJson(text);
-                console.log("[WB-IMPORT] parseWorldBookFromJson result:", parsed ? "SUCCESS" : "NULL", parsed);
                 if (parsed) {
-                    console.log("[WB-IMPORT] parsed entries:", parsed.entries?.length, "name:", parsed.name);
                     persist([parsed, ...books]);
                     setActiveBookId(parsed.id);
-                    console.log("[WB-IMPORT] import complete, id:", parsed.id);
                 } else {
-                    console.warn("[WB-IMPORT] parseWorldBookFromJson returned null");
                     setImportError("无法解析世界书文件，格式不正确。");
                 }
             } catch (e) {
-                console.error("[WB-IMPORT] error in onload:", e);
                 if (e instanceof Error && e.message === UNSUPPORTED_IMPORT_FORMAT) {
                     setImportError("不支持该世界书格式");
                 } else {
                     setImportError("无法解析世界书文件，格式不正确。");
                 }
             }
-        };
-        reader.onerror = (event) => {
-            console.error("[WB-IMPORT] reader.onerror:", event);
-            setImportError("无法读取文件。");
         };
         reader.readAsText(file);
         if (fileInputRef.current) fileInputRef.current.value = "";

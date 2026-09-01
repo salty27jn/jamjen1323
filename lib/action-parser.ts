@@ -20,6 +20,7 @@ import { sendBrowserNotification } from "./browser-notification";
 import type { MomentPost, MomentComment } from "./moments-types";
 import { attachMomentPhotoInBackground, parseMomentPostResponse } from "./moments-engine";
 import { isAbortError, throwIfAborted } from "./abort-utils";
+import { loadImageGenerationSettings } from "./settings-storage";
 
 // ── Types ──
 
@@ -325,7 +326,10 @@ async function dispatchMomentsPost(action: ActionTag, context: ActionContext): P
     }
 
     if (parsed.photoDescription) {
-        attachMomentPhotoInBackground(post.id, parsed.photoDescription, context.characterId, parsed.photoUseReferenceImage === true, context.signal);
+        const bgAllowed = loadImageGenerationSettings().allowBackgroundImageGeneration !== false;
+        if (bgAllowed) {
+            attachMomentPhotoInBackground(post.id, parsed.photoDescription, context.characterId, parsed.photoUseReferenceImage === true, context.signal);
+        }
     }
 
     console.log(`[ActionParser] Created moments post from ${context.sourceEngine} engine`);

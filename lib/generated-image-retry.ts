@@ -95,12 +95,14 @@ export async function generateAndApplyChatGeneratedImage(
         dispatchChatMessagesUpdated(updated.sessionId, updated);
         return updated;
     } catch (error) {
+        const isAbort = error instanceof DOMException && error.name === "AbortError";
         const failed = updateChatMessage(message.id, {
             mediaData: {
                 ...message.mediaData,
                 label: description,
-                imageGenerationStatus: "failed",
-                imageGenerationError: errorToMessage(error),
+                // abort 时保留 pending 状态（可重试），不标为 failed
+                imageGenerationStatus: isAbort ? "pending" : "failed",
+                imageGenerationError: isAbort ? undefined : errorToMessage(error),
             },
         });
         if (failed) dispatchChatMessagesUpdated(failed.sessionId, failed);
