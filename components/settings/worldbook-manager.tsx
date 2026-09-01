@@ -294,14 +294,18 @@ export function WorldBookManager({ isActive = true }: { isActive?: boolean } = {
         reader.onload = (event) => {
             try {
                 const text = event.target?.result as string;
+                console.log("[WB-IMPORT] file:", file.name, "size:", file.size, "textLen:", text.length, "start:", text.substring(0, 100));
                 const parsed = parseWorldBookFromJson(text);
+                console.log("[WB-IMPORT] parseWorldBookFromJson =>", parsed ? { name: parsed.name, entries: parsed.entries.length } : null);
                 if (parsed) {
                     persist([parsed, ...books]);
                     setActiveBookId(parsed.id);
                 } else {
+                    console.warn("[WB-IMPORT] parse returned null");
                     setImportError("无法解析世界书文件，格式不正确。");
                 }
             } catch (e) {
+                console.error("[WB-IMPORT] parse threw:", e);
                 if (e instanceof Error && e.message === UNSUPPORTED_IMPORT_FORMAT) {
                     setImportError("不支持该世界书格式");
                 } else {
