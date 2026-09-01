@@ -460,44 +460,33 @@ function parseWorldBookEntry(e: any): WorldBookEntry {
 export function parseWorldBookFromJson(text: string): WorldBookConfig | null {
     try {
         const obj = JSON.parse(text);
-        console.log("[WB-PARSE] type:", typeof obj, "isArray:", Array.isArray(obj));
-        if (!obj || typeof obj !== "object") { console.warn("[WB-PARSE] not object"); return null; }
+        if (!obj || typeof obj !== "object") return null;
 
         // 纯数组格式：[{uid, key, content, ...}, ...]（SillyTavern 导出等）
         if (Array.isArray(obj)) {
-            console.log("[WB-PARSE] plain array, length:", obj.length);
             if (obj.length === 0) return null;
             if (isUnsupportedWorldBookFormat({ entries: obj })) throw new Error(UNSUPPORTED_IMPORT_FORMAT);
             const wb = createWorldBook("导入的世界书");
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             wb.entries = obj.map((e: any) => parseWorldBookEntry(e));
-            console.log("[WB-PARSE] array path, entries:", wb.entries.length);
             return wb;
         }
 
-        const unsupported = isUnsupportedWorldBookFormat(obj);
-        console.log("[WB-PARSE] isUnsupported:", unsupported, "keys:", Object.keys(obj));
-        if (unsupported) throw new Error(UNSUPPORTED_IMPORT_FORMAT);
+        if (isUnsupportedWorldBookFormat(obj)) throw new Error(UNSUPPORTED_IMPORT_FORMAT);
 
         const wb = createWorldBook(obj.name || "导入的世界书");
         if (Array.isArray(obj.entries)) {
-            console.log("[WB-PARSE] entries array, length:", obj.entries.length);
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const parsedEntries = obj.entries.map((e: any) => parseWorldBookEntry(e));
             wb.entries = parsedEntries;
         } else if (typeof obj.entries === "object" && obj.entries !== null) {
-            console.log("[WB-PARSE] entries object, keys:", Object.keys(obj.entries));
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             const parsedEntries = Object.values(obj.entries).map((e: any) => parseWorldBookEntry(e));
             wb.entries = parsedEntries;
-        } else {
-            console.log("[WB-PARSE] no entries, type:", typeof obj.entries);
         }
 
-        console.log("[WB-PARSE] done, entries:", wb.entries.length, "name:", wb.name);
         return wb;
     } catch (e) {
-        console.error("[WB-PARSE] ERROR:", e);
         if (e instanceof Error && e.message === UNSUPPORTED_IMPORT_FORMAT) throw e;
         return null;
     }
