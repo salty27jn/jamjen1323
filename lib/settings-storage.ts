@@ -462,6 +462,16 @@ export function parseWorldBookFromJson(text: string): WorldBookConfig | null {
         const obj = JSON.parse(text);
         if (!obj || typeof obj !== "object") return null;
 
+        // 纯数组格式：[{uid, key, content, ...}, ...]（SillyTavern 导出等）
+        if (Array.isArray(obj)) {
+            if (obj.length === 0) return null;
+            if (isUnsupportedWorldBookFormat({ entries: obj })) throw new Error(UNSUPPORTED_IMPORT_FORMAT);
+            const wb = createWorldBook("导入的世界书");
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            wb.entries = obj.map((e: any) => parseWorldBookEntry(e));
+            return wb;
+        }
+
         if (isUnsupportedWorldBookFormat(obj)) throw new Error(UNSUPPORTED_IMPORT_FORMAT);
 
         const wb = createWorldBook(obj.name || "导入的世界书");
