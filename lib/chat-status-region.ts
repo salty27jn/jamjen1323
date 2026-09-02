@@ -95,7 +95,7 @@ export const NATIVE_STATUS_REGION_FULL_EXAMPLE = [
 ].join("\n");
 
 export const DEFAULT_STATUS_REGION_CONFIG: StatusRegionConfig = {
-    mode: "native",
+    mode: "off",
     contract: "",
     renderHtml: "",
     previewRaw: "",
