@@ -403,7 +403,45 @@ const ENHANCEMENTS = [
         write("lib/chat-plugin-runtime.ts", c);
       }
     },
-  },];
+  },
+  // ── 思维链复制（custom/reasoning-copy.ts）──
+  // 给聊天「思考过程」弹窗加复制按钮，方便把思维链原文贴出去诊断。
+  {
+    id: "custom/reasoning-copy.ts 文件存在",
+    check: () => existsSync(join(ROOT, "custom", "reasoning-copy.ts")),
+    apply: () => {},
+  },
+  {
+    id: "chat-room.tsx: import mountReasoningCopy",
+    check: () => read("components/chat/chat-room.tsx").includes('from "@/custom/reasoning-copy"'),
+    apply: () => {
+      const p = join(ROOT, "components", "chat", "chat-room.tsx");
+      const c = readFileSync(p, "utf8");
+      if (c.includes('from "@/custom/reasoning-copy"')) return;
+      const next = c.replace(
+        'import { useChatBottomReserve } from "./use-chat-bottom-reserve";',
+        'import { useChatBottomReserve } from "./use-chat-bottom-reserve";\nimport { mountReasoningCopy } from "@/custom/reasoning-copy";',
+      );
+      if (next === c) throw new Error("chat-room.tsx import 锚点未找到");
+      writeFileSync(p, next, "utf8");
+    },
+  },
+  {
+    id: "chat-room.tsx: 挂载 mountReasoningCopy",
+    check: () => read("components/chat/chat-room.tsx").includes("useEffect(() => mountReasoningCopy(), []);"),
+    apply: () => {
+      const p = join(ROOT, "components", "chat", "chat-room.tsx");
+      const c = readFileSync(p, "utf8");
+      if (c.includes("useEffect(() => mountReasoningCopy(), []);")) return;
+      const next = c.replace(
+        "useEffect(() => () => { mountedRef.current = false; }, []);",
+        "useEffect(() => () => { mountedRef.current = false; }, []);\n    useEffect(() => mountReasoningCopy(), []);",
+      );
+      if (next === c) throw new Error("chat-room.tsx 挂载锚点未找到");
+      writeFileSync(p, next, "utf8");
+    },
+  },
+];
 
 let changed = false;
 let allApplied = true;

@@ -22,6 +22,7 @@ import { sendBrowserNotification } from "@/lib/browser-notification";
 import { dispatchChatMessageNotice } from "@/lib/chat-notification-events";
 import { shouldSendChatInputOnEnter } from "@/lib/chat-input-keyboard";
 import { useChatBottomReserve } from "./use-chat-bottom-reserve";
+import { mountReasoningCopy } from "@/custom/reasoning-copy";
 import ReactMarkdown from "react-markdown";
 import rehypeRaw from "rehype-raw";
 import remarkGfm from "remark-gfm";
@@ -1347,6 +1348,7 @@ export function ChatRoom({ session, onBack, onDeleted }: ChatRoomProps) {
     const hasMoreRef = useRef(false);
     const offlineGenerationInputRef = useRef("");
     useEffect(() => () => { mountedRef.current = false; }, []);
+    useEffect(() => mountReasoningCopy(), []);
     useEffect(() => { visibleMessagesRef.current = messages; }, [messages]);
     useEffect(() => { hasMoreRef.current = hasMore; }, [hasMore]);
     useChatBottomReserve(
