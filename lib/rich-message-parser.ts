@@ -540,8 +540,8 @@ function extractBracketBlock(text: string, tag: string): { cleaned: string; cont
     let content = "";
     let cleaned = text;
     const escapedTag = tag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-    // 兼容中英文闭合标签：[/内心] 或 [/inner]
-    const closeTags = tag === "内心" ? `\\/(?:${escapedTag}|inner)` : `\\/${escapedTag}`;
+    // 兼容中英文闭合标签：[/内心]、[/inner]、(/inner)
+    const closeTags = tag === "内心" ? `(?:\\/(?:${escapedTag}|inner)|\\(\\/inner\\))` : `\\/${escapedTag}`;
     const rx = new RegExp(`\\[${escapedTag}\\]([\\s\\S]*?)\\[${closeTags}\\]`, "g");
 
     let match;
