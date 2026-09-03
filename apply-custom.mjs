@@ -255,6 +255,39 @@ const ENHANCEMENTS = [
     },
   },
   {
+    // 修复：image-generation-settings.tsx 的 lucide import 行在上游合并/补丁重放时
+    // 可能丢掉 Plus / Info（代码里 Line 403 用 Plus、Line 821 用 Info），
+    // 运行到那两处会抛 ReferenceError 导致设置页崩溃。本增强幂等地把缺失的
+    // 图标名补回 import 行；缺失才补，重复跑不会叠加。
+    id: "image-generation-settings.tsx: 补全 lucide 图标 import（Plus/Info）",
+    check: () => {
+      // 只检查 lucide import 行（而非整个文件），避免文件别处出现 Plus/Info 字样干扰判断
+      const m = /import \{([^}]*)\} from "lucide-react";/.exec(read("components/settings/image-generation-settings.tsx"));
+      if (!m) return false;
+      const names = m[1].split(",").map(s => s.trim());
+      return names.includes("Plus") && names.includes("Info");
+    },
+    apply: () => {
+      const p = join(ROOT, "components", "settings", "image-generation-settings.tsx");
+      let c = readFileSync(p, "utf8");
+      const m = c.match(/import \{([^}]*)\} from "lucide-react";/);
+      if (!m) throw new Error("image-generation-settings.tsx lucide import 未找到");
+      const names = m[1].split(",").map(s => s.trim()).filter(Boolean);
+      let changed = false;
+      for (const need of ["Plus", "Info"]) {
+        if (!names.includes(need)) {
+          names.push(need);
+          changed = true;
+        }
+      }
+      if (changed) {
+        const newLine = `import { ${names.join(", ")} } from "lucide-react";`;
+        c = c.replace(m[0], newLine);
+        writeFileSync(p, c, "utf8");
+      }
+    },
+  },
+  {
     id: "image-generation-settings.tsx: 禁止角色发照片开关行（已集成到上游）",
     check: () => {
       const c = read("components/settings/image-generation-settings.tsx");

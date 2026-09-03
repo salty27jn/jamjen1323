@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from "react";
-import { AlertCircle, Camera, ChevronDown, Image, ImageOff, RefreshCw, Sparkles, Trash2, Upload } from "lucide-react";
+import { AlertCircle, Camera, ChevronDown, Image, ImageOff, RefreshCw, Sparkles, Trash2, Upload, Plus, Info } from "lucide-react";
 import type { ImageGenerationSettings as ImageGenerationSettingsType } from "@/lib/settings-types";
 import {
     DEFAULT_IMAGE_GENERATION_SETTINGS,
