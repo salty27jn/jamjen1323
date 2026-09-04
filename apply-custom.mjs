@@ -288,6 +288,26 @@ const ENHANCEMENTS = [
     },
   },
   {
+    // 修复：image-generation-settings.tsx 的 naiSettings useMemo 里 activePresetId
+    // 直接引用 naiSettings 自身（TDZ：'Cannot access M before initialization'），
+    // 打开图像生成设置页时因自引用崩溃。改为取已算好的 activePreset.id，与
+    // activePreset 字段保持一致。
+    // 注意：只替换 useMemo 返回值里的那处自引用（用其独有的 `apiKey: nai?.apiKey`
+    // 前文做锚点），不要动 updateNovelAi 里 `naiSettings.activePresetId` 的合法读取。
+    id: "image-generation-settings.tsx: 修复 naiSettings activePresetId 自引用（TDZ 崩溃）",
+    check: () => !read("components/settings/image-generation-settings.tsx").includes(
+      "apiKey: nai?.apiKey || \"\",\n            activePresetId: naiSettings.activePresetId,",
+    ),
+    apply: () => {
+      const p = join(ROOT, "components", "settings", "image-generation-settings.tsx");
+      const c = readFileSync(p, "utf8");
+      const old = "apiKey: nai?.apiKey || \"\",\n            activePresetId: naiSettings.activePresetId,";
+      const next = "apiKey: nai?.apiKey || \"\",\n            activePresetId: activePreset?.id || \"\",";
+      if (!c.includes(old)) throw new Error("image-generation-settings.tsx 自引用锚点未找到");
+      writeFileSync(p, c.split(old).join(next), "utf8");
+    },
+  },
+  {
     id: "image-generation-settings.tsx: 禁止角色发照片开关行（已集成到上游）",
     check: () => {
       const c = read("components/settings/image-generation-settings.tsx");
