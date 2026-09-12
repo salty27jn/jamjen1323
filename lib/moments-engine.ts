@@ -1160,14 +1160,18 @@ export function parseMomentPostResponse(rawText: string): {
 
     const explicitPhotoMatch = text.match(/\[照片[:：]\s*(使用参考图|不使用参考图)\s*[:：]\s*([\s\S]*?)\]/);
     const legacyPhotoMatch = explicitPhotoMatch ? null : text.match(/\[照片[:：]\s*([\s\S]*?)\]/);
-    // 「禁止角色发照片」开启时，朋友圈不再保留照片描述，只发纯文字。
+// 「禁止角色发照片」开启时，朋友圈不再保留照片描述，只发纯文字。
     const stripMomentPhoto = shouldStripMomentPhoto();
     const photoDescription = stripMomentPhoto
         ? undefined
         : (explicitPhotoMatch
             ? explicitPhotoMatch[2].trim()
             : legacyPhotoMatch ? legacyPhotoMatch[1].trim() : undefined);
-    const photoUseReferenceImage = stripMomentPhoto ? false : (explicitPhotoMatch ? explicitPhotoMatch[1] === "使用参考图" : false);
+    const photoUseReferenceImage = stripMomentPhoto ? false : (explicitPhotoMatch
+        ? explicitPhotoMatch[1] === "使用参考图"
+        : legacyPhotoMatch
+            ? /(?:自拍|对镜拍|selfie)/i.test(photoDescription || "")
+            : false);
 
     const content = text
         .replace(/\[照片[:：]\s*(?:使用参考图|不使用参考图)\s*[:：]\s*[\s\S]*?\]/g, "")
