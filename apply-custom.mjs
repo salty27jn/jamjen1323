@@ -494,6 +494,28 @@ const ENHANCEMENTS = [
       writeFileSync(p, next, "utf8");
     },
   },
+  // ── 原生状态栏默认开启（lib/chat-status-region.ts）──
+  // 上游默认 DEFAULT_STATUS_REGION_CONFIG.mode = "off"（未设置过状态栏的会话
+  // 从提示词里移除状态栏整节）。本地改为默认 "native"，让没配过的会话直接
+  // 走原生状态数值/内心。只改默认值，不碰已存配置与 off/custom 判断逻辑。
+  {
+    id: "lib/chat-status-region.ts: 原生状态栏默认开启",
+    check: () => {
+      const c = read("lib/chat-status-region.ts");
+      return /DEFAULT_STATUS_REGION_CONFIG: StatusRegionConfig = \{\r?\n    mode: "native",/.test(c);
+    },
+    apply: () => {
+      const p = join(ROOT, "lib", "chat-status-region.ts");
+      const c = readFileSync(p, "utf8");
+      if (/DEFAULT_STATUS_REGION_CONFIG: StatusRegionConfig = \{\r?\n    mode: "native",/.test(c)) return;
+      const next = c.replace(
+        /DEFAULT_STATUS_REGION_CONFIG: StatusRegionConfig = \{\r?\n    mode: "off",/,
+        'DEFAULT_STATUS_REGION_CONFIG: StatusRegionConfig = {\r\n    mode: "native",',
+      );
+      if (next === c) throw new Error("lib/chat-status-region.ts 默认配置锚点未找到");
+      writeFileSync(p, next, "utf8");
+    },
+  },
 ];
 
 let changed = false;
